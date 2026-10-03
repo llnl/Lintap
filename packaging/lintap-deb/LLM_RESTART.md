@@ -88,28 +88,14 @@ WINTAP_DATA_ROOT=/var/log/lintap
 
 The package enables the systemd service during install but intentionally does **not** start it automatically.
 
-## Current important limitation: NuGet/network
+## Publish and restore guidance
 
-A fresh `dotnet restore` / `dotnet publish` currently hangs in the VM because the VM cannot reach NuGet:
+A release candidate must use a fresh `dotnet publish`. The builder places
+intermediate files under `/var/tmp/lintap-deb-build` by default, which avoids
+publish failures caused by the mounted repository filesystem. If restore is
+unavailable, use `--publish-dir` only for a development/smoke package:
 
-```sh
-curl -I --max-time 10 https://api.nuget.org/v3/index.json
-# exits 28 / times out
-```
-
-Therefore, for now, use the dev/smoke-test packaging path that skips `dotnet publish` and packages an existing build output:
-
-```sh
-Lintap/packaging/lintap-deb/build-deb.sh \
-  --version 0.1.0 \
-  --revision 1 \
-  --framework-dependent \
-  --publish-dir wintap/wintap/bin/Debug/net8.0
-```
-
-Do **not** spend time trying to solve NuGet unless explicitly asked. The user accepted this limitation for the initial smoke test/dev package.
-
-## Known successful build command
+## Arm64 build command
 
 From the VM:
 
@@ -118,8 +104,7 @@ cd /home/ubuntu/git
 Lintap/packaging/lintap-deb/build-deb.sh \
   --version 0.1.0 \
   --revision 1 \
-  --framework-dependent \
-  --publish-dir wintap/wintap/bin/Debug/net8.0
+  --host-arch aarch64
 ```
 
 Known output:
@@ -128,7 +113,7 @@ Known output:
 artifacts/lintap-deb/lintap_0.1.0-1_arm64.deb
 ```
 
-The VM architecture during previous testing was `arm64`, and the eBPF Makefile compiled with:
+The VM architecture is `arm64`, and the eBPF Makefile compiles with:
 
 ```text
 -D__TARGET_ARCH_arm64
@@ -145,17 +130,17 @@ dpkg-deb --contents artifacts/lintap-deb/lintap_0.1.0-1_arm64.deb | \
   grep -E '(/usr/lib/lintap/Lintap$|/usr/lib/lintap/tracers/.*\.bpf\.o$|lintap.service|lintap.env|/usr/bin/lintap$)'
 ```
 
-Expected key files:
+Expected key files include the tracepoint tier:
 
 ```text
 /etc/lintap/lintap.env
 /usr/lib/systemd/system/lintap.service
 /usr/lib/lintap/Lintap
 /usr/lib/lintap/tracers/clone_tracer.bpf.o
-/usr/lib/lintap/tracers/execve_tracer.bpf.o
-/usr/lib/lintap/tracers/exit_tracer.bpf.o
-/usr/lib/lintap/tracers/file_ops_tracer.bpf.o
-/usr/lib/lintap/tracers/network_ops_tracer.bpf.o
+/usr/lib/lintap/tracers/execve_tracepoint.bpf.o
+/usr/lib/lintap/tracers/exit_tracepoint.bpf.o
+/usr/lib/lintap/tracers/file_ops_tracepoint.bpf.o
+/usr/lib/lintap/tracers/network_tracepoint.bpf.o
 /usr/lib/lintap/tracers/openat_tracer.bpf.o
 ```
 

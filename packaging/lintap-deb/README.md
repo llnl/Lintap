@@ -1,6 +1,8 @@
 # Lintap Debian package
 
-This directory contains simple Debian packaging for the Lintap Linux sensor.
+This directory contains Debian packaging for the Lintap Linux sensor. The
+builder supports native amd64 and arm64 builds and keeps intermediate publish
+and staging files on a native filesystem under `/var/tmp` by default.
 
 ## Quickstart: build packages
 
@@ -15,6 +17,10 @@ The default build is self-contained .NET for the host Debian architecture. Outpu
 ```text
 artifacts/lintap-deb/lintap_<version>-<revision>_<arch>.deb
 ```
+
+The main application is published with MCP disabled. Unless `--skip-mcp` is
+used, the MCP helper is published separately as a self-contained single-file
+helper under `/usr/lib/lintap/mcp`.
 
 ### Build for the current host architecture
 
@@ -74,13 +80,33 @@ Useful options:
 
 ```sh
 Lintap/packaging/lintap-deb/build-deb.sh --framework-dependent
+Lintap/packaging/lintap-deb/build-deb.sh --skip-mcp
 Lintap/packaging/lintap-deb/build-deb.sh --no-restore
+Lintap/packaging/lintap-deb/build-deb.sh --work-root /var/tmp/lintap-deb-build
+Lintap/packaging/lintap-deb/build-deb.sh --host-arch aarch64
 Lintap/packaging/lintap-deb/build-deb.sh --project-dir /path/to/wintap/wintap
 ```
 
 `--project-dir` or `LINTAP_PROJECT_DIR` can be used when the Lintap .NET project is outside the auto-detected checkout layouts.
 
 `--publish-dir` is a development escape hatch: it skips `dotnet publish` and packages an existing publish/build output directory. Prefer a fresh `dotnet publish` for release packages. The script applies defensive filtering to this path and fails if forbidden build artifacts such as `obj/`, VCS metadata, `.venv/`, or `.fuse_hidden*` files would be staged.
+
+## Tracer tiers
+
+Every build validates the tracepoint fallback objects:
+
+```text
+clone_tracer.bpf.o
+openat_tracer.bpf.o
+execve_tracepoint.bpf.o
+exit_tracepoint.bpf.o
+network_tracepoint.bpf.o
+file_ops_tracepoint.bpf.o
+```
+
+Native builds with readable kernel BTF also validate and package the CO-RE
+objects. `selinux_tracer.bpf.o` is staged when present but is never required.
+Cross-builds intentionally disable BTF and validate only the tracepoint tier.
 
 ## Build prerequisites
 
@@ -138,4 +164,7 @@ sudo systemctl status lintap lintap-pidstat
 sudo journalctl -u lintap-pidstat -f
 ```
 
-The package enables the service on install but does not start it automatically.
+The package enables the services on install but does not start them
+automatically. An in-place upgrade does not stop or disable an already-running
+service. `--work-root` defaults to `/var/tmp/lintap-deb-build`; final packages
+remain under `artifacts/lintap-deb/`.

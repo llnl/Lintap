@@ -1,6 +1,7 @@
 # Lintap Debian Package Build and Smoke-Test Guide
 
-This guide explains how to build and install the current dev/smoke-test Ubuntu package for the Lintap Linux sensor.
+This guide explains how to build and install the Ubuntu package for the Lintap
+Linux sensor on native amd64 or arm64 hosts.
 
 ## What this package is
 
@@ -19,17 +20,21 @@ Installed layout:
 
 The systemd service is enabled on install, but it is **not started automatically**. You start it manually after reviewing the config.
 
-## Current dev-build assumption
+## Build location and publish modes
 
-The Ubuntu VM currently cannot reach NuGet reliably, so a clean `dotnet publish` is not practical right now.
+Build on the Ubuntu host, not on the macOS host. Intermediate publish and
+staging files default to `/var/tmp/lintap-deb-build` so the build does not use
+the mounted repository filesystem. Final packages are written to
+`artifacts/lintap-deb/`.
 
-For the initial smoke test, build the package from the existing Lintap build output:
+Release builds should use a fresh publish:
 
 ```text
-wintap/wintap/bin/Debug/net8.0
+Lintap/packaging/lintap-deb/build-deb.sh --version 0.1.0 --revision 1
 ```
 
-This is acceptable for the current dev package. Later, when NuGet access/cache is fixed, use the normal release path described near the end of this guide.
+If NuGet or restore is unavailable, `--publish-dir` remains a development
+escape hatch. It is not the release validation path.
 
 ## 1. Connect to the Ubuntu VM
 
@@ -53,16 +58,15 @@ Go to the mounted repo root:
 cd /home/ubuntu/git
 ```
 
-## 2. Build the dev/smoke-test package
+## 2. Build the package
 
-Run:
+Run the native arm64 build on `lintap-dev`:
 
 ```sh
 Lintap/packaging/lintap-deb/build-deb.sh \
   --version 0.1.0 \
   --revision 1 \
-  --framework-dependent \
-  --publish-dir wintap/wintap/bin/Debug/net8.0
+  --host-arch aarch64
 ```
 
 Expected output ends with something like:
@@ -93,12 +97,15 @@ You should see:
 /usr/lib/systemd/system/lintap.service
 /usr/lib/lintap/Lintap
 /usr/lib/lintap/tracers/clone_tracer.bpf.o
-/usr/lib/lintap/tracers/execve_tracer.bpf.o
-/usr/lib/lintap/tracers/exit_tracer.bpf.o
-/usr/lib/lintap/tracers/file_ops_tracer.bpf.o
-/usr/lib/lintap/tracers/network_ops_tracer.bpf.o
+/usr/lib/lintap/tracers/execve_tracepoint.bpf.o
+/usr/lib/lintap/tracers/exit_tracepoint.bpf.o
+/usr/lib/lintap/tracers/file_ops_tracepoint.bpf.o
+/usr/lib/lintap/tracers/network_tracepoint.bpf.o
 /usr/lib/lintap/tracers/openat_tracer.bpf.o
 ```
+
+On native hosts with BTF, the corresponding four CO-RE objects and any built
+`selinux_tracer.bpf.o` are included as well.
 
 ## 4. Install the package
 
@@ -116,7 +123,7 @@ Then install that file.
 
 ### If apt reports a missing .NET runtime
 
-The current dev package is framework-dependent and declares:
+For a framework-dependent package, the control file declares:
 
 ```text
 aspnetcore-runtime-8.0
@@ -258,14 +265,14 @@ Use `Ctrl-C` to stop.
 ls -l /usr/lib/lintap/tracers
 ```
 
-Expected files:
+Expected files include:
 
 ```text
 clone_tracer.bpf.o
-execve_tracer.bpf.o
-exit_tracer.bpf.o
-file_ops_tracer.bpf.o
-network_ops_tracer.bpf.o
+execve_tracepoint.bpf.o
+exit_tracepoint.bpf.o
+file_ops_tracepoint.bpf.o
+network_tracepoint.bpf.o
 /usr/lib/lintap/tracers/openat_tracer.bpf.o
 ```
 
@@ -279,7 +286,7 @@ ldconfig -p | grep libbpf || true
 The package depends on:
 
 ```text
-libbpf1, libc6, zlib1g, libelf1, systemd
+libbpf1, libc6, zlib1g, libelf1t64 | libelf1, liblttng-ust1t64 | liblttng-ust1, systemd
 ```
 
 The dev/framework-dependent package also depends on:
