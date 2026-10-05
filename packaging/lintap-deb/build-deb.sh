@@ -14,17 +14,21 @@ Options:
   --runtime RID           .NET runtime identifier. Default: auto from dpkg arch
   --arch ARCH             Debian architecture. Default: dpkg --print-architecture
   --project-dir DIR       Lintap .NET project directory. Default: auto-detect
+  --skip-mcp              Do not publish/package the MCP server helper
   --framework-dependent   Publish framework-dependent and depend on aspnetcore-runtime-8.0
   --configuration CONFIG   dotnet publish configuration. Default: Release
   --no-restore            Pass --no-restore to dotnet publish
   --publish-dir DIR       Skip dotnet publish and stage an existing publish/build directory
+  --host-arch ARCH        Build host architecture. Default: uname -m
+  --work-root DIR         Native filesystem work root. Default: /var/tmp/lintap-deb-build
   --no-clean              Do not remove previous packaging work directory
   -h, --help              Show this help
 
 Environment overrides:
   LINTAP_VERSION, LINTAP_REVISION, LINTAP_RUNTIME, LINTAP_ARCH,
   LINTAP_PROJECT_DIR, LINTAP_SELF_CONTAINED=true|false, LINTAP_OUTPUT_DIR,
-  LINTAP_CONFIGURATION, LINTAP_NO_RESTORE=true|false, LINTAP_EXISTING_PUBLISH_DIR
+  LINTAP_CONFIGURATION, LINTAP_NO_RESTORE=true|false, LINTAP_SKIP_MCP=true|false,
+  LINTAP_DEB_WORK_ROOT, LINTAP_EXISTING_PUBLISH_DIR
 USAGE
 }
 
@@ -39,11 +43,14 @@ RUNTIME=${LINTAP_RUNTIME:-}
 SELF_CONTAINED=${LINTAP_SELF_CONTAINED:-true}
 CONFIGURATION=${LINTAP_CONFIGURATION:-Release}
 NO_RESTORE=${LINTAP_NO_RESTORE:-false}
+SKIP_MCP=${LINTAP_SKIP_MCP:-false}
 EXISTING_PUBLISH_DIR=${LINTAP_EXISTING_PUBLISH_DIR:-}
 PROJECT_DIR=${LINTAP_PROJECT_DIR:-}
 CLEAN=true
 OUTPUT_ROOT=${LINTAP_OUTPUT_DIR:-"$REPO_ROOT/artifacts/lintap-deb"}
+WORK_ROOT=${LINTAP_DEB_WORK_ROOT:-"/var/tmp/lintap-deb-build"}
 VERSION=${LINTAP_VERSION:-}
+HOST_ARCH=${LINTAP_HOST_ARCH:-}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -67,6 +74,10 @@ while [[ $# -gt 0 ]]; do
       PROJECT_DIR=${2:?--project-dir requires a value}
       shift 2
       ;;
+    --skip-mcp)
+      SKIP_MCP=true
+      shift
+      ;;
     --framework-dependent)
       SELF_CONTAINED=false
       shift
@@ -81,6 +92,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --publish-dir)
       EXISTING_PUBLISH_DIR=${2:?--publish-dir requires a value}
+      shift 2
+      ;;
+    --host-arch)
+      HOST_ARCH=${2:?--host-arch requires a value}
+      shift 2
+      ;;
+    --work-root)
+      WORK_ROOT=${2:?--work-root requires a value}
       shift 2
       ;;
     --no-clean)
@@ -112,6 +131,7 @@ require_cmd dpkg-deb
 require_cmd dpkg
 require_cmd clang
 require_cmd bpftool
+require_cmd ldd
 
 if [[ -z "$PROJECT_DIR" ]]; then
   project_candidates=(
@@ -136,6 +156,7 @@ fi
 PROJECT_DIR=$(cd -- "$PROJECT_DIR" && pwd)
 PROJECT="$PROJECT_DIR/Lintap.csproj"
 EBPF_DIR="$PROJECT_DIR/platform/linux/sensor/ebpf/tracers"
+MCP_PROJECT="$PROJECT_DIR/../shared/ai/wintap_mcp_server/wintap_mcp_server.csproj"
 
 if [[ ! -f "$PROJECT" ]]; then
   echo "ERROR: could not find $PROJECT" >&2
@@ -149,6 +170,10 @@ fi
 
 if [[ -z "$DEB_ARCH" ]]; then
   DEB_ARCH=$(dpkg --print-architecture)
+fi
+
+if [[ -z "$HOST_ARCH" ]]; then
+  HOST_ARCH=$(uname -m)
 fi
 
 if [[ -z "$RUNTIME" ]]; then
@@ -173,6 +198,19 @@ case "$DEB_ARCH:$RUNTIME" in
     ;;
 esac
 
+if [[ "$HOST_ARCH" != aarch64 && "$HOST_ARCH" != x86_64 ]]; then
+  echo "ERROR: unsupported build host architecture '$HOST_ARCH'" >&2
+  exit 1
+fi
+
+if [[ "$HOST_ARCH" == aarch64 && "$DEB_ARCH" == arm64 ]] ||
+   [[ "$HOST_ARCH" == x86_64 && "$DEB_ARCH" == amd64 ]]; then
+  echo "==> Building native target Debian arch '$DEB_ARCH' / RID '$RUNTIME'"
+else
+  echo "==> Cross-building target Debian arch '$DEB_ARCH' / RID '$RUNTIME' from host arch '$HOST_ARCH'"
+  echo "==> The .NET SDK must be able to restore/publish runtime pack '$RUNTIME' on this host"
+fi
+
 if [[ -z "$VERSION" ]]; then
   if git -C "$REPO_ROOT" describe --tags --abbrev=0 >/dev/null 2>&1; then
     VERSION=$(git -C "$REPO_ROOT" describe --tags --abbrev=0 | sed 's/^v//')
@@ -187,24 +225,32 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 PACKAGE_VERSION="${VERSION}-${REVISION}"
-WORK_DIR="$OUTPUT_ROOT/work/$DEB_ARCH-$RUNTIME"
-PUBLISH_DIR="$OUTPUT_ROOT/publish/$RUNTIME"
+WORK_DIR="$WORK_ROOT/work/$DEB_ARCH-$RUNTIME"
+PUBLISH_DIR="$WORK_ROOT/publish/$RUNTIME"
 PKG_ROOT="$WORK_DIR/pkgroot"
 DEBIAN_DIR="$PKG_ROOT/DEBIAN"
+MSBUILD_NATIVE_ROOT="$WORK_ROOT/msbuild/$DEB_ARCH-$RUNTIME"
+MCP_PUBLISH_ROOT="$WORK_ROOT/mcp-publish/$DEB_ARCH-$RUNTIME"
+MCP_OUTPUT_ROOT="$WORK_ROOT/mcp-output/$DEB_ARCH-$RUNTIME"
 DEB_FILE="$OUTPUT_ROOT/${PACKAGE_NAME}_${PACKAGE_VERSION}_${DEB_ARCH}.deb"
 
 if [[ "$CLEAN" == true ]]; then
-  rm -rf "$WORK_DIR" "$PUBLISH_DIR"
+  rm -rf "$WORK_DIR" "$PUBLISH_DIR" "$MSBUILD_NATIVE_ROOT" "$MCP_PUBLISH_ROOT" "$MCP_OUTPUT_ROOT"
 fi
 mkdir -p "$OUTPUT_ROOT" "$PUBLISH_DIR" "$DEBIAN_DIR"
+
+echo "==> Debian output root: $OUTPUT_ROOT"
+echo "==> Native work root: $WORK_ROOT"
 
 echo "==> Building eBPF tracers ($EBPF_TARGET_ARCH)"
 ebpf_make_args=(clean all TARGET_ARCH="$EBPF_TARGET_ARCH")
 host_arch=$(uname -m)
-if [[ "$DEB_ARCH" == amd64 && "$host_arch" != x86_64 ]]; then
-  ebpf_make_args+=(VMLINUX_BTF=/__lintap_crossbuild_no_btf__)
+if [[ "$HOST_ARCH" != "$host_arch" ]]; then
+  echo "ERROR: --host-arch '$HOST_ARCH' does not match uname -m '$host_arch'" >&2
+  exit 1
 fi
-if [[ "$DEB_ARCH" == arm64 && "$host_arch" != aarch64 ]]; then
+if [[ "$HOST_ARCH" != aarch64 && "$DEB_ARCH" == arm64 ]] ||
+   [[ "$HOST_ARCH" != x86_64 && "$DEB_ARCH" == amd64 ]]; then
   ebpf_make_args+=(VMLINUX_BTF=/__lintap_crossbuild_no_btf__)
 fi
 make -C "$EBPF_DIR" "${ebpf_make_args[@]}"
@@ -225,18 +271,56 @@ if [[ -n "$EXISTING_PUBLISH_DIR" ]]; then
   cp -R "$EXISTING_PUBLISH_DIR"/. "$PUBLISH_DIR/"
 else
   echo "==> Publishing Lintap ($RUNTIME, configuration=$CONFIGURATION, self-contained=$SELF_CONTAINED)"
+  # Prevent the Lintap project’s post-publish copy target from reusing MCP
+  # output left by an earlier build, especially for --skip-mcp.
+  rm -rf "$MCP_OUTPUT_ROOT"
   publish_args=(
     publish "$PROJECT"
     -c "$CONFIGURATION"
     -r "$RUNTIME"
     --self-contained "$SELF_CONTAINED"
+    -p:RuntimeIdentifier="$RUNTIME"
+    -p:NativeBuildRoot="$MSBUILD_NATIVE_ROOT/"
+    -p:McpPublishTempDir="$MCP_PUBLISH_ROOT/"
+    -p:McpOutputDir="$MCP_OUTPUT_ROOT/"
+    -p:EnableMcpServer=false
+    -p:PublishReadyToRun=false
     -p:PublishSingleFile=false
     -o "$PUBLISH_DIR"
   )
   if [[ "$NO_RESTORE" == true ]]; then
     publish_args+=(--no-restore)
   fi
-  dotnet "${publish_args[@]}"
+  DISABLE_MCP=true dotnet "${publish_args[@]}"
+
+  if [[ "$SKIP_MCP" != true && -f "$MCP_PROJECT" ]]; then
+    echo "==> Publishing MCP server separately ($RUNTIME)"
+    rm -rf "$MCP_PUBLISH_ROOT"
+    mkdir -p "$MCP_PUBLISH_ROOT" "$PUBLISH_DIR/mcp"
+    mcp_publish_args=(
+      publish "$MCP_PROJECT"
+      -c "$CONFIGURATION"
+      -r "$RUNTIME"
+      --self-contained "$SELF_CONTAINED"
+      -p:PublishSingleFile=true
+      -p:PublishReadyToRun=false
+      -p:UseAppHost=true
+      -p:GenerateAssemblyInfo=false
+      -p:GenerateTargetFrameworkAttribute=false
+      -p:BaseIntermediateOutputPath="$MCP_PUBLISH_ROOT/obj/"
+      -p:BaseOutputPath="$MCP_PUBLISH_ROOT/bin/"
+      -o "$MCP_PUBLISH_ROOT"
+    )
+    if [[ "$NO_RESTORE" == true ]]; then
+      mcp_publish_args+=(--no-restore)
+    fi
+    dotnet "${mcp_publish_args[@]}"
+    cp -R "$MCP_PUBLISH_ROOT"/. "$PUBLISH_DIR/mcp/"
+  fi
+fi
+
+if [[ "$SKIP_MCP" == true ]]; then
+  rm -rf "$PUBLISH_DIR/mcp" "$PUBLISH_DIR/mcp_temp"
 fi
 
 # Defensive cleanup for development builds used with --publish-dir. A normal
@@ -331,15 +415,22 @@ assert_exists /usr/lib/lintap/pidstat-collector-bootstrap.sh
 
 expected_bpf_objects=(
   clone_tracer.bpf.o
-  execve_tracer.bpf.o
-  exit_tracer.bpf.o
-  file_ops_tracer.bpf.o
-  network_ops_tracer.bpf.o
   openat_tracer.bpf.o
+  execve_tracepoint.bpf.o
+  exit_tracepoint.bpf.o
+  network_tracepoint.bpf.o
+  file_ops_tracepoint.bpf.o
 )
 for bpf_object in "${expected_bpf_objects[@]}"; do
   assert_exists "/usr/lib/lintap/tracers/$bpf_object"
 done
+
+if [[ "$HOST_ARCH" == aarch64 && "$DEB_ARCH" == arm64 && -r /sys/kernel/btf/vmlinux ]] ||
+   [[ "$HOST_ARCH" == x86_64 && "$DEB_ARCH" == amd64 && -r /sys/kernel/btf/vmlinux ]]; then
+  for bpf_object in execve_tracer.bpf.o exit_tracer.bpf.o network_ops_tracer.bpf.o file_ops_tracer.bpf.o; do
+    assert_exists "/usr/lib/lintap/tracers/$bpf_object"
+  done
+fi
 
 assert_not_staged '*/obj/*'
 assert_not_staged '*/.git/*'
@@ -356,6 +447,31 @@ else
   fi
 fi
 
+echo "==> Verifying native dependencies with ldd"
+LDD_REPORT="$WORK_DIR/ldd.txt"
+LDD_OPTIONAL_REPORT="$WORK_DIR/ldd-optional.txt"
+: > "$LDD_REPORT"
+: > "$LDD_OPTIONAL_REPORT"
+ldd "$PKG_ROOT/usr/lib/lintap/Lintap" >> "$LDD_REPORT" 2>&1 || true
+while IFS= read -r native_library; do
+  if [[ "$(basename "$native_library")" == libcoreclrtraceptprovider.so ]]; then
+    ldd "$native_library" >> "$LDD_OPTIONAL_REPORT" 2>&1 || true
+  else
+    ldd "$native_library" >> "$LDD_REPORT" 2>&1 || true
+  fi
+done < <(find "$PKG_ROOT/usr/lib/lintap" -type f -name '*.so' -print)
+if [[ -x "$PKG_ROOT/usr/lib/lintap/mcp/wintap_mcp_server" ]]; then
+  ldd "$PKG_ROOT/usr/lib/lintap/mcp/wintap_mcp_server" >> "$LDD_REPORT" 2>&1 || true
+fi
+if grep -q 'not found' "$LDD_REPORT"; then
+  echo "ERROR: staged binary has unresolved native dependencies:" >&2
+  grep 'not found' "$LDD_REPORT" >&2
+  exit 1
+fi
+if grep -q 'not found' "$LDD_OPTIONAL_REPORT"; then
+  echo "WARN: optional .NET diagnostic provider has an unresolved host library; see $LDD_OPTIONAL_REPORT" >&2
+fi
+
 cat > "$DEBIAN_DIR/control" <<EOF
 Package: $PACKAGE_NAME
 Version: $PACKAGE_VERSION
@@ -363,7 +479,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: $MAINTAINER
-Depends: ${DOTNET_DEPENDS}libbpf1, libc6, zlib1g, libelf1, systemd
+Depends: ${DOTNET_DEPENDS}libbpf1, libc6, zlib1g, libelf1t64 | libelf1, liblttng-ust1t64 | liblttng-ust1, systemd
 Recommends: bpftool
 Description: Lintap Linux sensor
  Lintap is the Linux sensor build of Wintap. This package installs the
@@ -379,7 +495,8 @@ cat > "$DEBIAN_DIR/postinst" <<'EOF'
 #!/bin/sh
 set -e
 
-if [ "$1" = "configure" ]; then
+case "${1:-}" in
+configure)
     mkdir -p /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
     chmod 0750 /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
 
@@ -390,7 +507,11 @@ if [ "$1" = "configure" ]; then
     fi
 
     echo "Lintap installed. Review /etc/lintap/lintap.env, run: sudo bash /usr/lib/lintap/pidstat-collector-bootstrap.sh, then start with: sudo systemctl start lintap lintap-pidstat"
-fi
+    ;;
+upgrade|failed-upgrade|abort-install|abort-upgrade)
+    # Leave an already-running service running across in-place upgrades.
+    ;;
+esac
 
 exit 0
 EOF
@@ -399,14 +520,19 @@ cat > "$DEBIAN_DIR/prerm" <<'EOF'
 #!/bin/sh
 set -e
 
-if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
+case "${1:-}" in
+remove|deconfigure)
     if command -v systemctl >/dev/null 2>&1; then
         systemctl stop lintap.service >/dev/null 2>&1 || true
         systemctl disable lintap.service >/dev/null 2>&1 || true
         systemctl stop lintap-pidstat.service >/dev/null 2>&1 || true
         systemctl disable lintap-pidstat.service >/dev/null 2>&1 || true
     fi
-fi
+    ;;
+upgrade|failed-upgrade|abort-install|abort-upgrade)
+    # Do not disable the service during an in-place upgrade.
+    ;;
+esac
 
 exit 0
 EOF
@@ -419,10 +545,14 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
 fi
 
-if [ "$1" = "purge" ]; then
+case "${1:-}" in
+purge)
     rm -rf /etc/lintap
     # Preserve /var/log/lintap sensor data by default. Remove it manually if desired.
-fi
+    ;;
+upgrade|failed-upgrade|abort-install|abort-upgrade|remove|disappear)
+    ;;
+esac
 
 exit 0
 EOF
