@@ -282,8 +282,9 @@ class Config:
                 "and Lintap process-event noise."
             )
             rotate_interval_sec = min_rotate_interval_sec
-        parquet_root = Path(os.environ.get("PIDSTAT_PARQUET_ROOT", str(data_root / "parquet")))
-        spool_dir = Path(os.environ.get("PIDSTAT_SPOOL_DIR", str(data_root / "pidstat-spool")))
+        runtime_root = Path(os.environ.get("WINTAP_RUNTIME_ROOT", f"{Path.home()}/data/lintap/lintap-dev-runtime"))
+        parquet_root = Path(os.environ.get("PIDSTAT_PARQUET_ROOT", str(data_root)))
+        spool_dir = Path(os.environ.get("PIDSTAT_SPOOL_DIR", str(runtime_root / "pidstat-spool")))
         duckdb_threads = parse_positive_int(os.environ.get("PIDSTAT_DUCKDB_THREADS", "1"), "PIDSTAT_DUCKDB_THREADS")
         max_unshipped_bytes = parse_nonnegative_int(
             os.environ.get("PIDSTAT_MAX_UNSHIPPED_BYTES", "1073741824"),

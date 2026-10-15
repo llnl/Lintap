@@ -83,7 +83,8 @@ The package installs:
 /usr/lib/lintap/tracers/*.bpf.o  eBPF tracer objects
 /usr/bin/lintap                  launcher for /usr/lib/lintap/Lintap
 /etc/lintap/lintap.env           systemd environment overrides
-/var/log/lintap/                 default data root
+/var/lib/lintap/data/            default shared data root (contains raw_sensor/)
+/var/lib/lintap/runtime/         default host-local runtime root
 /usr/lib/systemd/system/lintap.service
 /usr/lib/systemd/system/lintap-pidstat.service
 ```
@@ -97,7 +98,8 @@ External config parity with the Ubuntu package:
 The RPM marks this file as `%config(noreplace)`, so local edits are preserved across upgrades when possible. By default it sets:
 
 ```text
-WINTAP_DATA_ROOT=/var/log/lintap
+WINTAP_DATA_ROOT=/var/lib/lintap/data
+WINTAP_RUNTIME_ROOT=/var/lib/lintap/runtime
 WINTAP_DISABLE_MCP=true
 WINTAP_DISABLE_DUCKDB_UI=true
 WINTAP_DISABLE_ETL=false
@@ -117,7 +119,7 @@ PIDSTAT_VENV_DIR=/opt/lintap/pidstat-collector/.venv
 PIDSTAT_BOOTSTRAP_PYTHON=3.12
 ```
 
-Lintap logs are expected under `/var/log/lintap/Logs`, parquet/raw sensor output under `/var/log/lintap/parquet`, and the pidstat collector keeps its active spool under `/var/log/lintap/pidstat-spool`.
+Lintap logs are expected under `/var/lib/lintap/runtime/Logs`, raw sensor output under `/var/lib/lintap/data/raw_sensor`, and the pidstat collector keeps its active spool under `/var/lib/lintap/runtime/pidstat-spool`.
 
 The pidstat service runs as root for full `/proc` visibility, but it no longer
 pins a host Python path. Instead, bootstrap a dedicated `uv`-managed venv and
@@ -153,7 +155,8 @@ sudoedit /etc/lintap/lintap.env
 Default config:
 
 ```text
-WINTAP_DATA_ROOT=/var/log/lintap
+WINTAP_DATA_ROOT=/var/lib/lintap/data
+WINTAP_RUNTIME_ROOT=/var/lib/lintap/runtime
 WINTAP_DISABLE_MCP=true
 WINTAP_DISABLE_DUCKDB_UI=true
 WINTAP_DISABLE_ETL=false
@@ -171,8 +174,9 @@ Config notes:
 
 - `/etc/lintap/lintap.env` is read by systemd via `EnvironmentFile=-/etc/lintap/lintap.env`.
 - The RPM marks `/etc/lintap/lintap.env` as `%config(noreplace)`, so local edits are preserved across upgrades when possible.
-- Runtime logs, Parquet output, raw sensor output, and state default under `/var/log/lintap`.
-- The managed pidstat collector uses the same `/etc/lintap/lintap.env` file and writes to `/var/log/lintap/parquet/raw_sensor/pidstat/...`.
+- Runtime logs, DuckDB, diagnostics, and state default under `/var/lib/lintap/runtime`.
+- Shared raw sensor output defaults under `/var/lib/lintap/data/raw_sensor`.
+- The managed pidstat collector uses the same `/etc/lintap/lintap.env` file and writes to `/var/lib/lintap/data/raw_sensor/pidstat/...`.
 - The managed pidstat collector resolves its interpreter from `PIDSTAT_VENV_DIR` (default `/opt/lintap/pidstat-collector/.venv`) and is bootstrapped with `uv`, not with a system-wide `pip install`.
 - The stable Linux sensors are enabled by default; `CloneSensor` remains disabled because `sched_process_fork` attach failed during Fedora bring-up.
 - The RPM defaults `WINTAP_PARQUET_COMPRESSION=Uncompressed` for RHEL 8 glibc compatibility. Snappy remains the application default outside this package.
@@ -191,7 +195,7 @@ Verify expected paths:
 
 ```sh
 systemctl cat lintap
-sudo find /var/log/lintap -maxdepth 4 -type f | sort
+sudo find /var/lib/lintap/data /var/lib/lintap/runtime -maxdepth 4 -type f | sort
 curl -fsS http://localhost:8099/ || true
 ```
 
