@@ -67,10 +67,10 @@ export WINTAP_DATA_ROOT=~/data/lintap/lintap-dev
 export PIDSTAT_DATA_PATH=$WINTAP_DATA_ROOT/pidstat
 mkdir -p "$PIDSTAT_DATA_PATH"
 cp /home/ubuntu/git/Lintap/mydata.tsv "$PIDSTAT_DATA_PATH/"
-# Copy or collect raw_sensor under $WINTAP_DATA_ROOT/parquet/raw_sensor
+# Copy or collect raw_sensor under $WINTAP_DATA_ROOT/raw_sensor
 ```
 
-`WINTAP_RAW_SENSOR_ROOT` can be set instead of `WINTAP_DATA_ROOT` when raw parquet lives somewhere other than `$WINTAP_DATA_ROOT/parquet/raw_sensor`.
+`WINTAP_RAW_SENSOR_ROOT` can be set instead of `WINTAP_DATA_ROOT` when raw parquet lives somewhere other than `$WINTAP_DATA_ROOT/raw_sensor`.
 
 #### Load into DuckDB
 

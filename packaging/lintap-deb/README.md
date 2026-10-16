@@ -121,6 +121,10 @@ Package names may vary by Ubuntu release and by how Microsoft .NET packages are 
 
 ## Runtime layout
 
+See the [paths and configuration guide](../PATHS_AND_CONFIGURATION.md) for
+the data/runtime split, environment-variable overrides, shared-mount examples,
+and verification commands.
+
 The package installs:
 
 ```text

@@ -73,6 +73,10 @@ If using Microsoft packages for .NET, configure the Microsoft RHEL package repos
 
 ## Runtime Layout
 
+See the [paths and configuration guide](../PATHS_AND_CONFIGURATION.md) for
+the data/runtime split, environment-variable overrides, shared-mount examples,
+and verification commands.
+
 The package installs:
 
 ```text

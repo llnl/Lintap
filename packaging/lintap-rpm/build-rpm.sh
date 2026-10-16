@@ -345,6 +345,9 @@ chmod 0755 "$PKG_ROOT/usr/bin/lintap"
 if [[ -f "$SCRIPT_DIR/README.md" ]]; then
   install -m 0644 "$SCRIPT_DIR/README.md" "$PKG_ROOT/usr/share/doc/lintap/README.md"
 fi
+if [[ -f "$SCRIPT_DIR/../PATHS_AND_CONFIGURATION.md" ]]; then
+  install -m 0644 "$SCRIPT_DIR/../PATHS_AND_CONFIGURATION.md" "$PKG_ROOT/usr/share/doc/lintap/PATHS_AND_CONFIGURATION.md"
+fi
 
 chmod 0755 "$PKG_ROOT/usr/lib/lintap/Lintap" 2>/dev/null || true
 if [[ -x "$PKG_ROOT/usr/lib/lintap/mcp/wintap_mcp_server" ]]; then
@@ -481,6 +484,7 @@ fi
 
 %files
 %doc /usr/share/doc/lintap/README.md
+%doc /usr/share/doc/lintap/PATHS_AND_CONFIGURATION.md
 /usr/bin/lintap
 /usr/lib/lintap
 /usr/lib/systemd/system/lintap.service
