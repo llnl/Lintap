@@ -324,8 +324,8 @@ mkdir -p \
   "$PKG_ROOT/usr/lib/lintap" \
   "$PKG_ROOT/usr/bin" \
   "$PKG_ROOT/etc/lintap" \
-  "$PKG_ROOT/var/lib/lintap/data" \
-  "$PKG_ROOT/var/lib/lintap/runtime" \
+  "$PKG_ROOT/var/log/lintap/data" \
+  "$PKG_ROOT/var/log/lintap/runtime" \
   "$PKG_ROOT/usr/lib/systemd/system" \
   "$PKG_ROOT/usr/share/doc/lintap"
 
@@ -445,8 +445,8 @@ $DOTNET_REQUIRES
 %description
 Lintap is the Linux sensor build of Wintap. This package installs the .NET
 service, compiled eBPF tracer objects, default external configuration, and a
-  systemd unit. Shared sensor data is written under /var/lib/lintap/data and
-  host-local runtime state under /var/lib/lintap/runtime by default.
+   systemd unit. Shared sensor data is written under /var/log/lintap/data and
+   host-local runtime state under /var/log/lintap/runtime by default.
 
 %prep
 
@@ -458,8 +458,8 @@ mkdir -p %{buildroot}
 tar -xzf %{SOURCE0} -C %{buildroot}
 
 %post
-mkdir -p /var/lib/lintap/data /var/lib/lintap/runtime
-chmod 0750 /var/lib/lintap /var/lib/lintap/data /var/lib/lintap/runtime
+mkdir -p /var/log/lintap/data /var/log/lintap/runtime
+chmod 0750 /var/log/lintap /var/log/lintap/data /var/log/lintap/runtime
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable lintap.service >/dev/null 2>&1 || true
@@ -491,9 +491,9 @@ fi
 /usr/lib/systemd/system/lintap-pidstat.service
 %dir /etc/lintap
 %config(noreplace) /etc/lintap/lintap.env
-%dir %attr(0750,root,root) /var/lib/lintap
-%dir %attr(0750,root,root) /var/lib/lintap/data
-%dir %attr(0750,root,root) /var/lib/lintap/runtime
+%dir %attr(0750,root,root) /var/log/lintap
+%dir %attr(0750,root,root) /var/log/lintap/data
+%dir %attr(0750,root,root) /var/log/lintap/runtime
 
 %changelog
 * Tue Jun 09 2026 LLNL TeleTap Team <grantj@llnl.gov> - $VERSION-$RELEASE

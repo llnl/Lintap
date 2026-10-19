@@ -135,8 +135,8 @@ The package installs:
 /usr/lib/lintap/tracers/*.bpf.o  eBPF tracer objects
 /usr/bin/lintap                  launcher for /usr/lib/lintap/Lintap
 /etc/lintap/lintap.env           systemd environment overrides
-/var/lib/lintap/data/            default shared data root (contains raw_sensor/)
-/var/lib/lintap/runtime/         default host-local runtime root
+/var/log/lintap/data/            default shared data root (contains raw_sensor/)
+/var/log/lintap/runtime/         default host-local runtime root
 /usr/lib/systemd/system/lintap.service
 /usr/lib/systemd/system/lintap-pidstat.service
 ```
@@ -144,8 +144,8 @@ The package installs:
 By default, `/etc/lintap/lintap.env` sets:
 
 ```text
-WINTAP_DATA_ROOT=/var/lib/lintap/data
-WINTAP_RUNTIME_ROOT=/var/lib/lintap/runtime
+WINTAP_DATA_ROOT=/var/log/lintap/data
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 PIDSTAT_INTERVAL_SEC=5
 PIDSTAT_ROTATE_INTERVAL_SEC=300
 PIDSTAT_MIN_ROTATE_INTERVAL_SEC=300
@@ -154,7 +154,7 @@ PIDSTAT_VENV_DIR=/opt/lintap/pidstat-collector/.venv
 PIDSTAT_BOOTSTRAP_PYTHON=3.12
 ```
 
-Lintap logs are expected under `/var/lib/lintap/runtime/Logs`, raw sensor output under `/var/lib/lintap/data/raw_sensor`, and the pidstat collector keeps its active spool under `/var/lib/lintap/runtime/pidstat-spool`.
+Lintap logs are expected under `/var/log/lintap/runtime/Logs`, raw sensor output under `/var/log/lintap/data/raw_sensor`, and the pidstat collector keeps its active spool under `/var/log/lintap/runtime/pidstat-spool`.
 
 The pidstat service runs as root for full `/proc` visibility, but it no longer
 pins a host Python path. Instead, bootstrap a dedicated `uv`-managed venv and

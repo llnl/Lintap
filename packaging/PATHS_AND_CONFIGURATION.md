@@ -8,14 +8,14 @@ data and host-local runtime state.
 The Linux packages set these variables in `/etc/lintap/lintap.env`:
 
 ```text
-WINTAP_DATA_ROOT=/var/lib/lintap/data
-WINTAP_RUNTIME_ROOT=/var/lib/lintap/runtime
+WINTAP_DATA_ROOT=/var/log/lintap/data
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 ```
 
 The data root directly contains the durable sensor dataset:
 
 ```text
-/var/lib/lintap/data/
+/var/log/lintap/data/
 └── raw_sensor/
     └── <event>/dayPK=YYYYMMDD/hourPK=HH/...
 ```
@@ -23,7 +23,7 @@ The data root directly contains the durable sensor dataset:
 The runtime root contains host-local, disposable, or operational state:
 
 ```text
-/var/lib/lintap/runtime/
+/var/log/lintap/runtime/
 ├── esper_staging/       # serializer and merge input parquet
 ├── Logs/                # Lintap logs
 ├── event_store/         # local DuckDB/event state
@@ -52,7 +52,7 @@ state local to the host:
 
 ```text
 WINTAP_DATA_ROOT=/mnt/wintap-data
-WINTAP_RUNTIME_ROOT=/var/lib/lintap/runtime
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 ```
 
 Finalized files then land in `/mnt/wintap-data/raw_sensor/`; they are **not**
@@ -70,7 +70,7 @@ For a one-shot foreground run, set them on the command line:
 
 ```sh
 sudo env WINTAP_DATA_ROOT=/mnt/wintap-data \
-  WINTAP_RUNTIME_ROOT=/var/lib/lintap/runtime /usr/bin/lintap
+  WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime /usr/bin/lintap
 ```
 
 The application resolves each root independently. A configured or programmatic
@@ -83,7 +83,7 @@ The cross-platform application defaults are:
 
 | Platform | Data root | Runtime root |
 |---|---|---|
-| Linux | `/var/lib/lintap/data` | `/var/lib/lintap/runtime` |
+| Linux | `/var/log/lintap/data` | `/var/log/lintap/runtime` |
 | Windows | `%ProgramData%\\Wintap\\data` | `%ProgramData%\\Wintap\\runtime` |
 | macOS | `/Library/Application Support/Mactap/data` | `/Library/Application Support/Mactap/runtime` |
 
@@ -102,7 +102,7 @@ located independently from the sensor roots.
 ```sh
 grep -E '^(WINTAP_DATA_ROOT|WINTAP_RUNTIME_ROOT)=' /etc/lintap/lintap.env
 sudo journalctl -u lintap -b --no-pager | grep -E 'Data root|Runtime root|Esper staging path'
-sudo find /var/lib/lintap/data /var/lib/lintap/runtime -maxdepth 2 -type d | sort
+sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 2 -type d | sort
 ```
 
 The startup log should report both resolved roots and the Esper staging path.

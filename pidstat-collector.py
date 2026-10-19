@@ -258,12 +258,32 @@ class Config:
     def raw_sensor_dir(self) -> Path:
         return self.parquet_root / "raw_sensor" / "pidstat"
 
+    @staticmethod
+    def default_data_root() -> Path:
+        if sys.platform.startswith("linux"):
+            return Path("/var/log/lintap/data")
+        if sys.platform == "darwin":
+            return Path("/Library/Application Support/Mactap/data")
+        if os.name == "nt":
+            return Path(os.environ.get("PROGRAMDATA", r"C:\\ProgramData")) / "Wintap" / "data"
+        return Path.home() / "data" / "lintap" / "lintap-dev"
+
+    @staticmethod
+    def default_runtime_root() -> Path:
+        if sys.platform.startswith("linux"):
+            return Path("/var/log/lintap/runtime")
+        if sys.platform == "darwin":
+            return Path("/Library/Application Support/Mactap/runtime")
+        if os.name == "nt":
+            return Path(os.environ.get("PROGRAMDATA", r"C:\\ProgramData")) / "Wintap" / "runtime"
+        return Path.home() / "data" / "lintap" / "lintap-dev-runtime"
+
     @classmethod
     def from_env(cls) -> "Config":
         if duckdb is None:
             fail(f"duckdb Python module import failed: {DUCKDB_IMPORT_ERROR}")
 
-        data_root = Path(os.environ.get("WINTAP_DATA_ROOT", f"{Path.home()}/data/lintap/lintap-dev"))
+        data_root = Path(os.environ.get("WINTAP_DATA_ROOT", str(cls.default_data_root())))
         interval_sec = parse_positive_int(os.environ.get("PIDSTAT_INTERVAL_SEC", "5"), "PIDSTAT_INTERVAL_SEC")
         rotate_interval_sec = parse_positive_int(
             os.environ.get("PIDSTAT_ROTATE_INTERVAL_SEC", os.environ.get("WINTAP_ETL_UPLOAD_INTERVAL_SEC", "300")),
@@ -282,7 +302,7 @@ class Config:
                 "and Lintap process-event noise."
             )
             rotate_interval_sec = min_rotate_interval_sec
-        runtime_root = Path(os.environ.get("WINTAP_RUNTIME_ROOT", f"{Path.home()}/data/lintap/lintap-dev-runtime"))
+        runtime_root = Path(os.environ.get("WINTAP_RUNTIME_ROOT", str(cls.default_runtime_root())))
         parquet_root = Path(os.environ.get("PIDSTAT_PARQUET_ROOT", str(data_root)))
         spool_dir = Path(os.environ.get("PIDSTAT_SPOOL_DIR", str(runtime_root / "pidstat-spool")))
         duckdb_threads = parse_positive_int(os.environ.get("PIDSTAT_DUCKDB_THREADS", "1"), "PIDSTAT_DUCKDB_THREADS")

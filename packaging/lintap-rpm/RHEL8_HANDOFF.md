@@ -183,10 +183,10 @@ Additional quick validation of TCP event coverage:
 
 ```sh
 # raw_sensor (canonical partition layout)
-sudo find /var/log/lintap/parquet/raw_sensor/raw_process_conn_incr -type f -name '*raw_tcp_process_conn_incr*.parquet' | tail -n 3
+sudo find /var/log/lintap/data/raw_sensor/raw_process_conn_incr -type f -name '*raw_tcp_process_conn_incr*.parquet' | tail -n 3
 
 # serializer parquet (Esper -> parquet)
-ls -lt /var/log/lintap/parquet/tcpconnectionserializer | head
+ls -lt /var/log/lintap/runtime/esper_staging/tcpconnectionserializer | head
 ```
 
 #### 2) Process telemetry review
