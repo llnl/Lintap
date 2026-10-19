@@ -174,3 +174,9 @@ The package enables the services on install but does not start them
 automatically. An in-place upgrade does not stop or disable an already-running
 service. `--work-root` defaults to `/var/tmp/lintap-deb-build`; final packages
 remain under `artifacts/lintap-deb/`.
+
+For a disposable test host, run
+`sudo packaging/cleanup-test-install.sh --yes` from the Lintap source checkout
+before installation to remove
+both path roots and any legacy test tree. This manual tool is not part of
+package install or upgrade behavior; see the paths and configuration guide.

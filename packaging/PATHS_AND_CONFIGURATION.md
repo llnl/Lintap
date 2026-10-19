@@ -106,3 +106,18 @@ sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 2 -type d | sor
 ```
 
 The startup log should report both resolved roots and the Esper staging path.
+
+## Test-install cleanup
+
+For disposable test hosts only, run the manually invoked script **from a
+Lintap source checkout** before installing a new package:
+
+```sh
+sudo packaging/cleanup-test-install.sh --yes
+```
+
+It stops Lintap, removes both current roots and the legacy
+`/var/lib/lintap` test tree, and removes the pidstat virtual environment. It
+does **not** run from package maintainer scripts and must not be used where
+telemetry or local configuration needs to be retained. Re-bootstrap and
+explicitly re-enable pidstat after installation if it is needed.
