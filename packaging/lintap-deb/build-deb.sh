@@ -502,8 +502,8 @@ set -e
 
 case "${1:-}" in
 configure)
-    mkdir -p /var/log/lintap/data /var/log/lintap/runtime
-    chmod 0750 /var/log/lintap /var/log/lintap/data /var/log/lintap/runtime
+    mkdir -p /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
+    chmod 0750 /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
 
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload || true
@@ -553,7 +553,7 @@ fi
 case "${1:-}" in
 purge)
     rm -rf /etc/lintap
-    # Preserve shared data and runtime state by default. Remove them manually if desired.
+    # Preserve /var/log/lintap sensor data by default. Remove it manually if desired.
     ;;
 upgrade|failed-upgrade|abort-install|abort-upgrade|remove|disappear)
     ;;
