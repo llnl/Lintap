@@ -139,7 +139,7 @@ One concrete reproduction:
 - Generated a fork/exec pair using the same stimulus as the smoke test:
   - parent PID `565404` (bash)
   - child PID `565405` (sleep)
-- Querying `/var/log/lintap/parquet/processserializer/*.parquet` shows:
+- Querying `/var/log/lintap/runtime/esper_staging/processserializer/*.parquet` shows:
   - parent `PidHash` stable
   - multiple `Start` rows for the child with varying `ParentPidHash`, including one correct value and others incorrect.
 

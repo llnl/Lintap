@@ -1,8 +1,15 @@
 #!/bin/bash
 
-# Set output path: first argument, then PIDSTAT_DATA_PATH, then PIDSTAT_OUTPUT_PATH,
-# then a default under WINTAP_DATA_ROOT.
-output_path="${1:-${PIDSTAT_DATA_PATH:-${PIDSTAT_OUTPUT_PATH:-${WINTAP_DATA_ROOT:-$HOME/data/lintap/lintap-dev}/pidstat}}}"
+# Set output path: first argument, then PIDSTAT_DATA_PATH, then
+# PIDSTAT_OUTPUT_PATH, then the runtime-root default.
+if [[ -z "${WINTAP_RUNTIME_ROOT:-}" ]]; then
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
+  else
+    WINTAP_RUNTIME_ROOT="$HOME/data/lintap/lintap-dev-runtime"
+  fi
+fi
+output_path="${1:-${PIDSTAT_DATA_PATH:-${PIDSTAT_OUTPUT_PATH:-$WINTAP_RUNTIME_ROOT/pidstat}}}"
 
 # Create the output directory if it doesn't exist
 mkdir -p "$output_path"

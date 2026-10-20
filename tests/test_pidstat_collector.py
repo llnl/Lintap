@@ -33,9 +33,11 @@ class FakeSampler:
 @pytest.fixture()
 def collector_env(tmp_path, monkeypatch):
     data_root = tmp_path / "data"
+    runtime_root = tmp_path / "runtime"
     monkeypatch.setenv("WINTAP_DATA_ROOT", str(data_root))
-    monkeypatch.setenv("PIDSTAT_PARQUET_ROOT", str(data_root / "parquet"))
-    monkeypatch.setenv("PIDSTAT_SPOOL_DIR", str(data_root / "pidstat-spool"))
+    monkeypatch.setenv("WINTAP_RUNTIME_ROOT", str(runtime_root))
+    monkeypatch.delenv("PIDSTAT_PARQUET_ROOT", raising=False)
+    monkeypatch.delenv("PIDSTAT_SPOOL_DIR", raising=False)
     monkeypatch.setenv("PIDSTAT_HOSTNAME", "testhost")
     monkeypatch.setenv("PIDSTAT_INTERVAL_SEC", "1")
     monkeypatch.setenv("PIDSTAT_ROTATE_INTERVAL_SEC", "300")
@@ -45,6 +47,21 @@ def collector_env(tmp_path, monkeypatch):
     monkeypatch.setenv("PIDSTAT_MAX_UNSHIPPED_BYTES", "0")
     monkeypatch.setenv("PIDSTAT_MAX_UNSHIPPED_AGE_SEC", "0")
     return pidstat_collector.Config.from_env()
+
+
+def test_default_collector_roots_split_data_and_runtime(tmp_path, monkeypatch):
+    data_root = tmp_path / "data"
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setenv("WINTAP_DATA_ROOT", str(data_root))
+    monkeypatch.setenv("WINTAP_RUNTIME_ROOT", str(runtime_root))
+    monkeypatch.delenv("PIDSTAT_PARQUET_ROOT", raising=False)
+    monkeypatch.delenv("PIDSTAT_SPOOL_DIR", raising=False)
+
+    config = pidstat_collector.Config.from_env()
+
+    assert config.parquet_root == data_root
+    assert config.raw_sensor_dir == data_root / "raw_sensor" / "pidstat"
+    assert config.spool_dir == runtime_root / "pidstat-spool"
 
 
 def make_row(date_col="2026-08-12", sample_time="07:50:00", pid=128259, command="Lintap"):

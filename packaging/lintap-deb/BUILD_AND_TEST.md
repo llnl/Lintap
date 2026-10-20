@@ -14,7 +14,8 @@ Installed layout:
 /usr/lib/lintap/tracers/*.bpf.o  eBPF tracer objects
 /usr/bin/lintap                  launcher for /usr/lib/lintap/Lintap
 /etc/lintap/lintap.env           service environment/config override
-/var/log/lintap/                 default data/log root
+/var/log/lintap/data/            default shared data root
+/var/log/lintap/runtime/         default host-local runtime root
 /usr/lib/systemd/system/lintap.service
 ```
 
@@ -153,15 +154,17 @@ systemctl cat lintap
 Default config:
 
 ```text
-WINTAP_DATA_ROOT=/var/log/lintap
+WINTAP_DATA_ROOT=/var/log/lintap/data
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 ```
 
 Data and logs should go under:
 
 ```text
-/var/log/lintap
-/var/log/lintap/Logs
-/var/log/lintap/parquet
+/var/log/lintap/data
+/var/log/lintap/data/raw_sensor
+/var/log/lintap/runtime
+/var/log/lintap/runtime/Logs
 ```
 
 ## 6. Start the service
@@ -191,22 +194,22 @@ sudo journalctl -u lintap -f
 ## 7. Check Lintap file logs and output directories
 
 ```sh
-sudo ls -la /var/log/lintap
-sudo ls -la /var/log/lintap/Logs || true
-sudo tail -n 200 /var/log/lintap/Logs/Lintap.log || true
+sudo ls -la /var/log/lintap/data
+sudo ls -la /var/log/lintap/runtime/Logs || true
+sudo tail -n 200 /var/log/lintap/runtime/Logs/Lintap.log || true
 ```
 
 Look for parquet/raw sensor output:
 
 ```sh
-sudo find /var/log/lintap -maxdepth 5 -type f | head -100
+sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 5 -type f | head -100
 ```
 
 The desired raw sensor shape is eventually:
 
 ```text
-/var/log/lintap/parquet/raw_sensor/<event>/dayPK=YYYYMMDD/hourPK=HH/<file>.parquet
-/var/log/lintap/parquet/raw_sensor/raw_process_conn_incr/dayPK=YYYYMMDD/hourPK=HH/protoPK=tcp|udp/<file>.parquet
+/var/log/lintap/data/raw_sensor/<event>/dayPK=YYYYMMDD/hourPK=HH/<file>.parquet
+/var/log/lintap/data/raw_sensor/raw_process_conn_incr/dayPK=YYYYMMDD/hourPK=HH/protoPK=tcp|udp/<file>.parquet
 ```
 
 ## 8. Stop the service
@@ -230,7 +233,7 @@ Purge package config:
 sudo apt purge lintap
 ```
 
-The package intentionally preserves sensor data under `/var/log/lintap`. Remove it manually only if you are sure:
+The package intentionally preserves sensor data and runtime state under `/var/log/lintap`. Remove them manually only if you are sure:
 
 ```sh
 sudo rm -rf /var/log/lintap
@@ -245,7 +248,7 @@ Run:
 ```sh
 systemctl status lintap --no-pager
 sudo journalctl -u lintap -n 200 --no-pager
-sudo tail -n 200 /var/log/lintap/Logs/Lintap.log || true
+sudo tail -n 200 /var/log/lintap/runtime/Logs/Lintap.log || true
 ```
 
 ### Test Lintap manually
@@ -254,7 +257,7 @@ This bypasses systemd and runs from the installed directory:
 
 ```sh
 cd /usr/lib/lintap
-sudo env WINTAP_DATA_ROOT=/var/log/lintap ./Lintap
+sudo env WINTAP_DATA_ROOT=/var/log/lintap/data WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime ./Lintap
 ```
 
 Use `Ctrl-C` to stop.
@@ -334,5 +337,5 @@ systemctl cat lintap
 sudo systemctl start lintap
 systemctl status lintap --no-pager
 sudo journalctl -u lintap -n 100 --no-pager
-sudo find /var/log/lintap -maxdepth 5 -type f | head -100
+sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 5 -type f | head -100
 ```

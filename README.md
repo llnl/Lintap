@@ -10,6 +10,10 @@ Lintap now has 2 parallel implementations:
 
 [Running Lintap](teletap/README.md)
 
+For installed Linux packages, see the [paths and configuration guide](packaging/PATHS_AND_CONFIGURATION.md)
+before starting the service. It documents the data/runtime split and the
+`WINTAP_DATA_ROOT` and `WINTAP_RUNTIME_ROOT` environment variables.
+
 * Lintap (sysdig) is the original and extremely simple implementation built using `sysdig` for telemetry. This implementation will continue to be useful as a very simple, flexible playground for testing ideas and morphing to new challenges and goals very quickly. However, it isn't really intended for larger deployments or long-term collects.
 
 ## Running Lintap (sysdig)
@@ -52,7 +56,7 @@ The managed collector:
 - samples `/proc` every 5 seconds by default, with no steady-state child
   processes
 - writes typed parquet under
-  `$WINTAP_DATA_ROOT/parquet/raw_sensor/pidstat/dayPK=YYYYMMDD/hourPK=HH/`
+  `$WINTAP_DATA_ROOT/raw_sensor/pidstat/dayPK=YYYYMMDD/hourPK=HH/`
 - rotates on `PIDSTAT_ROTATE_INTERVAL_SEC` (default `300`, matching
   `WINTAP_ETL_UPLOAD_INTERVAL_SEC` when set)
 - clamps rotation to `PIDSTAT_MIN_ROTATE_INTERVAL_SEC` (default `300`) to

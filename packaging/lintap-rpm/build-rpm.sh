@@ -324,7 +324,8 @@ mkdir -p \
   "$PKG_ROOT/usr/lib/lintap" \
   "$PKG_ROOT/usr/bin" \
   "$PKG_ROOT/etc/lintap" \
-  "$PKG_ROOT/var/log/lintap" \
+  "$PKG_ROOT/var/log/lintap/data" \
+  "$PKG_ROOT/var/log/lintap/runtime" \
   "$PKG_ROOT/usr/lib/systemd/system" \
   "$PKG_ROOT/usr/share/doc/lintap"
 
@@ -343,6 +344,9 @@ chmod 0755 "$PKG_ROOT/usr/bin/lintap"
 
 if [[ -f "$SCRIPT_DIR/README.md" ]]; then
   install -m 0644 "$SCRIPT_DIR/README.md" "$PKG_ROOT/usr/share/doc/lintap/README.md"
+fi
+if [[ -f "$SCRIPT_DIR/../PATHS_AND_CONFIGURATION.md" ]]; then
+  install -m 0644 "$SCRIPT_DIR/../PATHS_AND_CONFIGURATION.md" "$PKG_ROOT/usr/share/doc/lintap/PATHS_AND_CONFIGURATION.md"
 fi
 
 chmod 0755 "$PKG_ROOT/usr/lib/lintap/Lintap" 2>/dev/null || true
@@ -441,7 +445,8 @@ $DOTNET_REQUIRES
 %description
 Lintap is the Linux sensor build of Wintap. This package installs the .NET
 service, compiled eBPF tracer objects, default external configuration, and a
-systemd unit. Sensor data is written under /var/log/lintap by default.
+   systemd unit. Shared sensor data is written under /var/log/lintap/data and
+   host-local runtime state under /var/log/lintap/runtime by default.
 
 %prep
 
@@ -453,8 +458,8 @@ mkdir -p %{buildroot}
 tar -xzf %{SOURCE0} -C %{buildroot}
 
 %post
-mkdir -p /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
-chmod 0750 /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
+mkdir -p /var/log/lintap/data /var/log/lintap/runtime
+chmod 0750 /var/log/lintap /var/log/lintap/data /var/log/lintap/runtime
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable lintap.service >/dev/null 2>&1 || true
@@ -479,6 +484,7 @@ fi
 
 %files
 %doc /usr/share/doc/lintap/README.md
+%doc /usr/share/doc/lintap/PATHS_AND_CONFIGURATION.md
 /usr/bin/lintap
 /usr/lib/lintap
 /usr/lib/systemd/system/lintap.service
@@ -486,6 +492,8 @@ fi
 %dir /etc/lintap
 %config(noreplace) /etc/lintap/lintap.env
 %dir %attr(0750,root,root) /var/log/lintap
+%dir %attr(0750,root,root) /var/log/lintap/data
+%dir %attr(0750,root,root) /var/log/lintap/runtime
 
 %changelog
 * Tue Jun 09 2026 LLNL TeleTap Team <grantj@llnl.gov> - $VERSION-$RELEASE

@@ -75,7 +75,8 @@ The package installs:
 /usr/lib/lintap/tracers/*.bpf.o  compiled eBPF object files
 /usr/bin/lintap                  launcher for /usr/lib/lintap/Lintap
 /etc/lintap/lintap.env           systemd environment file
-/var/log/lintap/                 default data root
+/var/log/lintap/data/            default shared data root
+/var/log/lintap/runtime/         default host-local runtime root
 /usr/lib/systemd/system/lintap.service
 /usr/share/doc/lintap/README.md
 ```
@@ -83,7 +84,8 @@ The package installs:
 Default service environment:
 
 ```text
-WINTAP_DATA_ROOT=/var/log/lintap
+WINTAP_DATA_ROOT=/var/log/lintap/data
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 ```
 
 The package enables the systemd service during install but intentionally does **not** start it automatically.
@@ -157,8 +159,8 @@ sudo systemctl start lintap
 sleep 5
 systemctl status lintap --no-pager
 sudo journalctl -u lintap -n 100 --no-pager
-sudo ls -la /var/log/lintap
-sudo find /var/log/lintap -maxdepth 4 -type f | head -50
+sudo ls -la /var/log/lintap/data
+sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 4 -type f | head -50
 ```
 
 If dependency resolution complains about `aspnetcore-runtime-8.0`, check what runtimes are already installed:
@@ -206,14 +208,14 @@ Service logs:
 
 ```sh
 sudo journalctl -u lintap -n 200 --no-pager
-sudo tail -n 200 /var/log/lintap/Logs/Lintap.log
+sudo tail -n 200 /var/log/lintap/runtime/Logs/Lintap.log
 ```
 
 Manual run test:
 
 ```sh
 cd /usr/lib/lintap
-sudo env WINTAP_DATA_ROOT=/var/log/lintap ./Lintap
+sudo env WINTAP_DATA_ROOT=/var/log/lintap/data WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime ./Lintap
 ```
 
 Cleanup:
@@ -222,7 +224,7 @@ Cleanup:
 sudo systemctl stop lintap || true
 sudo apt remove lintap
 # Data is intentionally preserved:
-sudo ls -la /var/log/lintap
+sudo ls -la /var/log/lintap/data
 ```
 
 Purge package config only:
@@ -231,7 +233,7 @@ Purge package config only:
 sudo apt purge lintap
 ```
 
-Data under `/var/log/lintap` is intentionally preserved even on purge unless manually removed.
+Data and runtime state under `/var/log/lintap` are intentionally preserved even on purge unless manually removed.
 
 ## Implementation notes
 
@@ -254,7 +256,7 @@ Data under `/var/log/lintap` is intentionally preserved even on purge unless man
   ```
 
 - Lintap code searches for eBPF objects in `AppContext.BaseDirectory/tracers`, which maps to `/usr/lib/lintap/tracers` after install.
-- Lintap Linux data root defaults to `/var/log/lintap`, and `/etc/lintap/lintap.env` sets `WINTAP_DATA_ROOT=/var/log/lintap` explicitly.
+- Lintap Linux data root defaults to `/var/log/lintap/data`, runtime root defaults to `/var/log/lintap/runtime`, and `/etc/lintap/lintap.env` sets both explicitly.
 
 ## Next likely task
 
@@ -263,5 +265,5 @@ Help the user install and smoke-test the generated package. Expect runtime/syste
 ```sh
 systemctl status lintap --no-pager
 sudo journalctl -u lintap -n 200 --no-pager
-sudo tail -n 200 /var/log/lintap/Logs/Lintap.log
+sudo tail -n 200 /var/log/lintap/runtime/Logs/Lintap.log
 ```

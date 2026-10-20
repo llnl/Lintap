@@ -13,7 +13,8 @@ Installed layout:
 /usr/lib/lintap/tracers/*.bpf.o  eBPF tracer objects
 /usr/bin/lintap                  launcher for /usr/lib/lintap/Lintap
 /etc/lintap/lintap.env           service environment/config override
-/var/log/lintap/                 default data/log root
+/var/log/lintap/data/            default shared data root
+/var/log/lintap/runtime/         default host-local runtime root
 /usr/lib/systemd/system/lintap.service
 ```
 
@@ -201,7 +202,8 @@ sudoedit /etc/lintap/lintap.env
 Default config:
 
 ```text
-WINTAP_DATA_ROOT=/var/log/lintap
+WINTAP_DATA_ROOT=/var/log/lintap/data
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 WINTAP_DISABLE_MCP=true
 WINTAP_DISABLE_DUCKDB_UI=true
 WINTAP_DISABLE_ETL=false
@@ -219,7 +221,7 @@ Config notes:
 
 - `/etc/lintap/lintap.env` is read by systemd via `EnvironmentFile=-/etc/lintap/lintap.env`.
 - The RPM marks `/etc/lintap/lintap.env` as `%config(noreplace)`, so local edits are preserved across upgrades when possible.
-- Runtime logs, Parquet output, raw sensor output, and state default under `/var/log/lintap`.
+- Runtime logs, DuckDB, diagnostics, and state default under `/var/log/lintap/runtime`; raw sensor output defaults under `/var/log/lintap/data/raw_sensor`.
 - The stable Linux sensors are enabled by default; `CloneSensor` remains disabled because `sched_process_fork` attach failed during Fedora bring-up.
 - The RPM defaults `WINTAP_PARQUET_COMPRESSION=Uncompressed` for RHEL 8 glibc compatibility. Snappy remains the application default outside this package.
 - The service is enabled during install, but not started automatically.
@@ -236,7 +238,7 @@ systemctl cat lintap
 Check output paths:
 
 ```sh
-sudo find /var/log/lintap -maxdepth 4 -type f | sort
+sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 4 -type f | sort
 curl -fsS http://localhost:8099/ || true
 ```
 
@@ -257,15 +259,17 @@ systemctl cat lintap
 Default config:
 
 ```text
-WINTAP_DATA_ROOT=/var/log/lintap
+WINTAP_DATA_ROOT=/var/log/lintap/data
+WINTAP_RUNTIME_ROOT=/var/log/lintap/runtime
 ```
 
 Data and logs should go under:
 
 ```text
-/var/log/lintap
-/var/log/lintap/Logs
-/var/log/lintap/parquet
+/var/log/lintap/data
+/var/log/lintap/data/raw_sensor
+/var/log/lintap/runtime
+/var/log/lintap/runtime/Logs
 ```
 
 The RPM marks `/etc/lintap/lintap.env` as `%config(noreplace)` so local edits are preserved across upgrades when possible.
@@ -287,8 +291,8 @@ sudo journalctl -u lintap -f
 Check Lintap file logs:
 
 ```sh
-sudo find /var/log/lintap -maxdepth 4 -type f | sort
-sudo tail -n 100 /var/log/lintap/Logs/Lintap.log
+sudo find /var/log/lintap/data /var/log/lintap/runtime -maxdepth 4 -type f | sort
+sudo tail -n 100 /var/log/lintap/runtime/Logs/Lintap.log
 ```
 
 ## 8. Basic runtime checks
@@ -317,4 +321,4 @@ coredumpctl list dotnet --no-pager
 sudo dnf remove lintap
 ```
 
-The package preserves `/var/log/lintap` sensor data by default. Remove it manually if desired.
+The package preserves `/var/log/lintap` data and runtime state by default. Remove it manually if desired.

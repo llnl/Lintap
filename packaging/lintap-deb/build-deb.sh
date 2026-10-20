@@ -343,7 +343,8 @@ mkdir -p \
   "$PKG_ROOT/usr/lib/lintap" \
   "$PKG_ROOT/usr/bin" \
   "$PKG_ROOT/etc/lintap" \
-  "$PKG_ROOT/var/log/lintap" \
+  "$PKG_ROOT/var/log/lintap/data" \
+  "$PKG_ROOT/var/log/lintap/runtime" \
   "$PKG_ROOT/usr/lib/systemd/system" \
   "$PKG_ROOT/usr/share/doc/lintap" \
   "$DEBIAN_DIR"
@@ -363,6 +364,9 @@ chmod 0755 "$PKG_ROOT/usr/bin/lintap"
 
 if [[ -f "$SCRIPT_DIR/README.md" ]]; then
   install -m 0644 "$SCRIPT_DIR/README.md" "$PKG_ROOT/usr/share/doc/lintap/README.md"
+fi
+if [[ -f "$SCRIPT_DIR/../PATHS_AND_CONFIGURATION.md" ]]; then
+  install -m 0644 "$SCRIPT_DIR/../PATHS_AND_CONFIGURATION.md" "$PKG_ROOT/usr/share/doc/lintap/PATHS_AND_CONFIGURATION.md"
 fi
 
 if [[ -x "$PKG_ROOT/usr/lib/lintap/Lintap" ]]; then
@@ -484,7 +488,8 @@ Recommends: bpftool
 Description: Lintap Linux sensor
  Lintap is the Linux sensor build of Wintap. This package installs the
  .NET service, compiled eBPF tracer objects, default configuration, and a
- systemd unit. Sensor data is written under /var/log/lintap by default.
+   systemd unit. Shared sensor data is written under /var/log/lintap/data and
+   host-local runtime state under /var/log/lintap/runtime by default.
 EOF
 
 cat > "$DEBIAN_DIR/conffiles" <<'EOF'
