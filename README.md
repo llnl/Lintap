@@ -4,6 +4,15 @@
 
 Lintap is a proof-of-concept host-based event sensor for Linux that implements Wintap-like functionality for Linux environments. It collects system telemetry data and transforms it into the semantic Wintap data model for analysis.
 
+## Getting Started
+
+Clone the repository to review the project and contribute:
+
+```sh
+git clone https://github.com/LLNL/Lintap.git
+cd Lintap
+```
+
 Lintap now has 2 parallel implementations:
 
 * Lintap (TeleTap-based) is the new version using eBPF for telemetry and tightly coupled with TeleTap, which is the `dotnet core` used by Wintap. This version is still in its infancy as we get the core components running and working together. The code for this version has all been moved into the Wintap repository. There is still some initial code for post-processing data in this repository as we sort things out.
@@ -215,9 +224,19 @@ Data Path/                      # Top level of all data sets
 
 ## Contributing
 
-Contributions to Lintap are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+contribution workflow and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community
+standards.
 
 ## License
+
+Lintap is distributed under the [MIT License](LICENSE). All new contributions
+must be made under the same license. See [NOTICE](NOTICE) for the LLNL auspice
+and disclaimer statements.
+
+SPDX-License-Identifier: MIT
+
+## Release
 
 LLNL-CODE-837816
 
