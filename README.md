@@ -10,9 +10,11 @@ Lintap now has 2 parallel implementations:
 
 [Running Lintap](teletap/README.md)
 
-For installed Linux packages, see the [paths and configuration guide](packaging/PATHS_AND_CONFIGURATION.md)
-before starting the service. It documents the data/runtime split and the
-`WINTAP_DATA_ROOT` and `WINTAP_RUNTIME_ROOT` environment variables.
+For Linux packages, use the canonical [build and test guide](packaging/README.md).
+Before starting an installed service, also review the
+[paths and configuration guide](packaging/PATHS_AND_CONFIGURATION.md), which
+documents the data/runtime split and the `WINTAP_DATA_ROOT` and
+`WINTAP_RUNTIME_ROOT` environment variables.
 
 * Lintap (sysdig) is the original and extremely simple implementation built using `sysdig` for telemetry. This implementation will continue to be useful as a very simple, flexible playground for testing ideas and morphing to new challenges and goals very quickly. However, it isn't really intended for larger deployments or long-term collects.
 

@@ -1,5 +1,9 @@
 # Lintap Debian Packaging Restart Notes for LLM/Tooling
 
+> **Historical handoff.** Host paths, artifact versions, and pending work in
+> this record are snapshots from the original packaging effort. Use the
+> canonical [package build and test guide](../README.md) for current commands.
+
 ## Objective
 
 Build and smoke-test an Ubuntu/Debian `.deb` package for the Lintap Linux sensor from this source tree. This is currently a dev/smoke-test packaging effort, not final Debian-policy-clean release packaging.

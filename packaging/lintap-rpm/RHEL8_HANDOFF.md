@@ -1,5 +1,9 @@
 ## Lintap RHEL 8 RPM Migration Handoff
 
+> **Historical handoff.** This document preserves RHEL 8 bring-up findings.
+> Use the canonical [package build and test guide](../README.md) for current
+> package procedures and treat status statements below as dated evidence.
+
 Last updated: 2026-06-20
 
 This document is the handoff for moving from the current cross-build/development workflow to building and validating the Lintap RPM on a real RHEL 8 `x86_64` system.
