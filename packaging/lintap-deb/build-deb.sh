@@ -350,7 +350,19 @@ mkdir -p \
   "$DEBIAN_DIR"
 
 cp -R "$PUBLISH_DIR"/. "$PKG_ROOT/usr/lib/lintap/"
-install -m 0644 "$SCRIPT_DIR/lintap.service" "$PKG_ROOT/usr/lib/systemd/system/lintap.service"
+awk -v version="$PACKAGE_VERSION" '
+  $0 == "Description=Lintap Linux Sensor" {
+    print "Description=Lintap Linux Sensor (" version ")"
+    found = 1
+    next
+  }
+  { print }
+  END { if (!found) exit 1 }
+' "$SCRIPT_DIR/lintap.service" > "$PKG_ROOT/usr/lib/systemd/system/lintap.service" || {
+  echo "ERROR: could not stamp package version into lintap.service" >&2
+  exit 1
+}
+chmod 0644 "$PKG_ROOT/usr/lib/systemd/system/lintap.service"
 install -m 0644 "$SCRIPT_DIR/lintap-pidstat.service" "$PKG_ROOT/usr/lib/systemd/system/lintap-pidstat.service"
 install -m 0644 "$SCRIPT_DIR/lintap.env" "$PKG_ROOT/etc/lintap/lintap.env"
 install -m 0755 "$SCRIPT_DIR/../../pidstat-collector.py" "$PKG_ROOT/usr/lib/lintap/pidstat-collector.py"
@@ -411,6 +423,10 @@ if [[ ! -x "$PKG_ROOT/usr/bin/lintap" ]]; then
   exit 1
 fi
 assert_exists /usr/lib/systemd/system/lintap.service
+if ! grep -Fqx "Description=Lintap Linux Sensor (${PACKAGE_VERSION})" "$PKG_ROOT/usr/lib/systemd/system/lintap.service"; then
+  echo "ERROR: staged lintap.service does not display package version '${PACKAGE_VERSION}'" >&2
+  exit 1
+fi
 assert_exists /usr/lib/systemd/system/lintap-pidstat.service
 assert_exists /etc/lintap/lintap.env
 assert_exists /usr/lib/lintap/pidstat-collector.py
@@ -431,7 +447,7 @@ done
 
 if [[ "$HOST_ARCH" == aarch64 && "$DEB_ARCH" == arm64 && -r /sys/kernel/btf/vmlinux ]] ||
    [[ "$HOST_ARCH" == x86_64 && "$DEB_ARCH" == amd64 && -r /sys/kernel/btf/vmlinux ]]; then
-  for bpf_object in execve_tracer.bpf.o exit_tracer.bpf.o network_ops_tracer.bpf.o file_ops_tracer.bpf.o; do
+  for bpf_object in execve_tracer.bpf.o exit_tracer.bpf.o network_ops_tracer.bpf.o file_ops_tracer.bpf.o clone_core_tracer.bpf.o; do
     assert_exists "/usr/lib/lintap/tracers/$bpf_object"
   done
 fi

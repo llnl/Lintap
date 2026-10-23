@@ -1,5 +1,9 @@
 # Lintap Debian Packaging Review
 
+> **Historical review record.** This file preserves the findings and their
+> disposition; it is not an active build guide. Use
+> [Building and Testing Lintap Packages](README.md) for current procedures.
+
 Review scope: `Lintap/packaging/lintap-deb`, the package docs, the systemd unit/env file, and the existing `artifacts/lintap-deb/lintap_0.1.0-1_arm64.deb` artifact.
 
 This classifies the current findings into immediate fixes, should-do improvements, and nice-to-have cleanup.

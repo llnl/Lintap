@@ -1,5 +1,9 @@
 ## Lintap RHEL8 Status + Handoff (2026-06-19)
 
+> **Historical status snapshot.** This document preserves one deployment's
+> observations and is not a current build guide. Use the canonical
+> [package build and test guide](../README.md).
+
 Last updated: 2026-06-20
 
 This document captures the current RHEL8 on-host build/validate status, what is working, what is failing, and the most likely causes/fixes. This is intended as a pragmatic handoff for the next engineering session.

@@ -1,5 +1,9 @@
 # Task: Add RHEL8 RPM Support for Lintap
 
+> **Historical task record.** The checklist below reflects the initial RPM
+> implementation and may not describe current validation status. Use the
+> canonical [package build and test guide](../README.md) for active procedures.
+
 ## Status: Initial implementation complete
 
 ## Goals

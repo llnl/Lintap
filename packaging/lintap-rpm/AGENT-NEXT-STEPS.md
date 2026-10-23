@@ -1,5 +1,9 @@
 # Agent Next Steps: Lintap RPM Packaging
 
+> **Historical handoff.** This snapshot is retained for provenance and is not
+> the current task list or build procedure. Use the canonical
+> [package build and test guide](../README.md).
+
 ## Context
 
 - `packaging/lintap-rpm/build-rpm.sh` now implements the initial RHEL 8 `x86_64` RPM workflow, including cross-builds from non-x86 hosts when the .NET SDK can publish `linux-x64`.
