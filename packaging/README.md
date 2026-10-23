@@ -175,9 +175,12 @@ The package enables, but does not automatically start, `lintap.service` and
 1. Review `/etc/lintap/lintap.env`.
 2. Confirm `WINTAP_DATA_ROOT` and `WINTAP_RUNTIME_ROOT`; see
    [Paths and Configuration](PATHS_AND_CONFIGURATION.md).
-3. Decide whether to enable Clone collection. Clone remains package-default
-   opt-in. Validation that requires fork-before-exec attribution must set
-   `WINTAP_ENABLE_CLONE_SENSOR=true` explicitly.
+3. Clone collection is enabled by default for fork-before-exec coverage. Set
+   `WINTAP_ENABLE_CLONE_SENSOR=false` for explicit opt-out. Review the durable
+   HOST runtime receipt for the selected tier and individual hook outcomes;
+   fallback thread classification is best-effort if syscall flag hooks fail.
+   Upgrades preserve locally edited environment files: check for an old false
+   setting rather than assuming the new package overrides administrator choices.
 4. Bootstrap pidstat only if it is required:
 
    ```sh
@@ -214,6 +217,12 @@ systemctl status lintap --no-pager
 sudo journalctl -u lintap -b --no-pager | tail -n 200
 sudo tail -n 200 /var/log/lintap/runtime/Logs/Lintap.log
 ```
+
+The `systemctl status lintap` description includes the installed package
+version and release (for example, `Lintap Linux Sensor (0.1.0-1)` on Debian or
+`Lintap Linux Sensor (0.1.0-1.el8)` on RPM). For an exact package-manager
+query, use `dpkg-query -W -f='${Version}\n' lintap` or
+`rpm -q --qf '%{VERSION}-%{RELEASE}\n' lintap`.
 
 The application log is the higher-signal source for sensor attachment,
 serializer counters, and final merge status. Confirm that the expected sensors

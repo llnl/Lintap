@@ -16,9 +16,9 @@ maintained in the canonical
 - Runtime state and logs: `/var/log/lintap/runtime/`
 
 The services are enabled but not started automatically. Review the environment
-file before first start. Clone collection remains opt-in; set
-`WINTAP_ENABLE_CLONE_SENSOR=true` only when the deployment requires it and has
-validated the attach point.
+file before first start. Clone collection is enabled by default; set
+`WINTAP_ENABLE_CLONE_SENSOR=false` to opt out. Inspect HOST runtime capability
+receipts for actual attach outcomes and fallback limitations.
 
 See [Paths and Configuration](../PATHS_AND_CONFIGURATION.md) for root overrides
 and shared-volume guidance.
