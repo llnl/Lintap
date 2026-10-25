@@ -315,8 +315,8 @@ default Snappy compression.
 Use these only for a specific build or diagnostic need:
 
 - `--skip-mcp`: omit the separately published MCP helper.
-- `--framework-dependent`: currently blocked for .NET 10 qualification by stale
-  ASP.NET Core 8 dependency metadata; use the default self-contained build.
+- `--framework-dependent`: publish a .NET 10 app requiring system
+  `aspnetcore-runtime-10.0`; qualify this mode separately from self-contained output.
 - `--no-restore`: reuse an already restored dependency graph.
 - `--publish-dir DIR`: package existing output; intended for development smoke
   tests, not a release artifact.
