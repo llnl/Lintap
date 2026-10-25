@@ -15,7 +15,7 @@ Options:
   --arch ARCH             Debian architecture. Default: dpkg --print-architecture
   --project-dir DIR       Lintap .NET project directory. Default: auto-detect
   --skip-mcp              Do not publish/package the MCP server helper
-  --framework-dependent   Publish framework-dependent and depend on aspnetcore-runtime-8.0
+  --framework-dependent   Publish framework-dependent and depend on aspnetcore-runtime-10.0
   --configuration CONFIG   dotnet publish configuration. Default: Release
   --no-restore            Pass --no-restore to dotnet publish
   --publish-dir DIR       Skip dotnet publish and stage an existing publish/build directory
@@ -126,6 +126,7 @@ require_cmd() {
 }
 
 require_cmd dotnet
+require_cmd python3
 require_cmd make
 require_cmd dpkg-deb
 require_cmd dpkg
@@ -167,6 +168,10 @@ if [[ ! -d "$EBPF_DIR" ]]; then
   echo "ERROR: could not find eBPF tracer directory $EBPF_DIR" >&2
   exit 1
 fi
+
+# Check the project SDK before cleaning any output or compiling eBPF.
+source "$SCRIPT_DIR/../dotnet-common.sh"
+lintap_require_dotnet_sdk "$PROJECT_DIR"
 
 if [[ -z "$DEB_ARCH" ]]; then
   DEB_ARCH=$(dpkg --print-architecture)
@@ -257,7 +262,7 @@ make -C "$EBPF_DIR" "${ebpf_make_args[@]}"
 
 DOTNET_DEPENDS=""
 if [[ "$SELF_CONTAINED" != true ]]; then
-  DOTNET_DEPENDS="aspnetcore-runtime-8.0, "
+  DOTNET_DEPENDS="aspnetcore-runtime-10.0, "
 fi
 
 if [[ -n "$EXISTING_PUBLISH_DIR" ]]; then
@@ -291,7 +296,7 @@ else
   if [[ "$NO_RESTORE" == true ]]; then
     publish_args+=(--no-restore)
   fi
-  DISABLE_MCP=true dotnet "${publish_args[@]}"
+  DISABLE_MCP=true lintap_dotnet "${publish_args[@]}"
 
   if [[ "$SKIP_MCP" != true && -f "$MCP_PROJECT" ]]; then
     echo "==> Publishing MCP server separately ($RUNTIME)"
@@ -314,10 +319,12 @@ else
     if [[ "$NO_RESTORE" == true ]]; then
       mcp_publish_args+=(--no-restore)
     fi
-    dotnet "${mcp_publish_args[@]}"
+    lintap_dotnet "${mcp_publish_args[@]}"
     cp -R "$MCP_PUBLISH_ROOT"/. "$PUBLISH_DIR/mcp/"
   fi
 fi
+
+lintap_validate_runtimeconfig "$PUBLISH_DIR/Lintap.runtimeconfig.json" "$SELF_CONTAINED"
 
 if [[ "$SKIP_MCP" == true ]]; then
   rm -rf "$PUBLISH_DIR/mcp" "$PUBLISH_DIR/mcp_temp"

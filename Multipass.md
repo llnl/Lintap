@@ -24,6 +24,11 @@ cp multipass-config.env.example multipass-config.env
 
 Much whirring will occur as the VM is brought up and configured. Something could go wrong... check the cloud-init YAML that is embedded in the script to help debug.
 
+Both provisioning scripts install SDK **10.0.402** in stable host-local
+`/opt/wintap-sdk/10.0.402` and expose it on PATH. This includes .NET/ASP.NET Core 10;
+it does not install a distribution-selected SDK patch. Package builders additionally
+check the Wintap checkout's `global.json` before any cleanup/build work.
+
 Once complete, you can connect with:
 
 ```sh
@@ -68,7 +73,7 @@ Run the Lintap process smoke test:
 cd /home/ubuntu/git/wintap
 sudo python3 devtools/process_capture_smoke_test.py \
   --start-lintap \
-  --lintap-dll /home/ubuntu/git/wintap/wintap/bin/Debug/net8.0/Lintap.dll \
+  --lintap-dll /home/ubuntu/git/wintap/wintap/bin/Debug/net10.0/Lintap.dll \
   --timeout 240 \
   --poll-interval 5
 ```
@@ -94,4 +99,3 @@ RUN_VALIDATION_MOCKS=false
 ```
 
 Keep `BUILD_WINTAP=false` for fast VM creation. Set it to `true` when you want the script to build eBPF and .NET immediately after cloud-init finishes.
-

@@ -424,16 +424,19 @@ runcmd:
       fi
     fi
 
-  # Add Microsoft repository and install .NET
+  # Install the qualified SDK into stable native storage, not the mounted home.
   - |
-    set -x
+    set -ex
     export DEBIAN_FRONTEND=noninteractive
-    . /etc/os-release
-    wget https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb -O /tmp/packages-microsoft-prod.deb
-    dpkg -i /tmp/packages-microsoft-prod.deb
-    rm /tmp/packages-microsoft-prod.deb
-    apt-get update
-    apt-get install -y dotnet-sdk-8.0 aspnetcore-runtime-8.0
+    apt-get install -y libicu-dev libssl-dev libkrb5-3 libstdc++6 zlib1g
+    sdk_version=10.0.402
+    sdk_root="/opt/wintap-sdk/$sdk_version"
+    mkdir -p "$sdk_root"
+    curl --fail --location https://dot.net/v1/dotnet-install.sh -o "$sdk_root/dotnet-install.sh"
+    bash "$sdk_root/dotnet-install.sh" --version "$sdk_version" --install-dir "$sdk_root" --no-path
+    test "$("$sdk_root/dotnet" --version)" = "$sdk_version"
+    ln -s "$sdk_root/dotnet" /usr/local/bin/dotnet
+    printf 'export DOTNET_ROOT=%s\nexport PATH=%s:$PATH\n' "$sdk_root" "$sdk_root" > /etc/profile.d/wintap-dotnet.sh
 
   # Install bpftool best-effort. On Ubuntu ARM images the package may be
   # provided by linux-tools-* rather than a standalone bpftool package.
@@ -549,7 +552,7 @@ Write-Host "  ssh $instanceName 'cd /home/ubuntu/git/wintap/wintap && make build
 Write-Host "  ssh $instanceName 'cd /home/ubuntu/git/Wintap-Analytics/validation/process-creation && uv run --extra dev pytest'"
 Write-Host ''
 Write-Host 'Lintap process smoke test inside VM:'
-Write-Host "  ssh $instanceName 'cd /home/ubuntu/git/wintap && sudo python3 devtools/process_capture_smoke_test.py --start-lintap --lintap-dll /home/ubuntu/git/wintap/wintap/bin/Debug/net8.0/Lintap.dll --timeout 240 --poll-interval 5'"
+Write-Host "  ssh $instanceName 'cd /home/ubuntu/git/wintap && sudo python3 devtools/process_capture_smoke_test.py --start-lintap --lintap-dll /home/ubuntu/git/wintap/wintap/bin/Debug/net10.0/Lintap.dll --timeout 240 --poll-interval 5'"
 Write-Host ''
 Write-Host 'VS Code Remote SSH:'
 Write-Host "  1. Install 'Remote - SSH' extension"

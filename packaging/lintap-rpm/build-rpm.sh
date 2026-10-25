@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Build a RHEL 8 x86_64 RPM package for the Lintap sensor.
+Build a RHEL x86_64 RPM package for the Lintap sensor (RHEL 9 qualification pending).
 
 Usage:
   Lintap/packaging/lintap-rpm/build-rpm.sh [options]
@@ -15,7 +15,7 @@ Options:
   --arch ARCH             Target RPM architecture. Default: x86_64
   --project-dir DIR       Lintap .NET project directory. Default: auto-detect
   --skip-mcp              Do not publish/package the MCP server helper
-  --framework-dependent   Publish framework-dependent and require aspnetcore-runtime-8.0
+  --framework-dependent   Publish framework-dependent and require aspnetcore-runtime-10.0
   --configuration CONFIG  dotnet publish configuration. Default: Release
   --no-restore            Pass --no-restore to dotnet publish
   --publish-dir DIR       Skip dotnet publish and stage an existing publish/build directory
@@ -128,6 +128,7 @@ require_cmd() {
 }
 
 require_cmd dotnet
+require_cmd python3
 require_cmd make
 require_cmd rpmbuild
 require_cmd tar
@@ -169,6 +170,10 @@ if [[ ! -d "$EBPF_DIR" ]]; then
   exit 1
 fi
 
+# Check the project SDK before cleaning any output or compiling eBPF.
+source "$SCRIPT_DIR/../dotnet-common.sh"
+lintap_require_dotnet_sdk "$PROJECT_DIR"
+
 if [[ -z "$HOST_ARCH" ]]; then
   HOST_ARCH=$(uname -m)
 fi
@@ -177,7 +182,7 @@ case "$RPM_ARCH:$RUNTIME" in
   # The eBPF build uses __TARGET_ARCH_x86 (not x86_64).
   x86_64:linux-x64) EBPF_TARGET_ARCH=x86 ;;
   *)
-    echo "ERROR: this RPM builder currently targets RHEL 8 x86_64 only" >&2
+    echo "ERROR: this RPM builder currently targets RHEL x86_64 only" >&2
     echo "       supported pair: x86_64/linux-x64" >&2
     exit 1
     ;;
@@ -239,7 +244,7 @@ make -C "$EBPF_DIR" "${ebpf_make_args[@]}"
 
 DOTNET_REQUIRES=""
 if [[ "$SELF_CONTAINED" != true ]]; then
-  DOTNET_REQUIRES="Requires: aspnetcore-runtime-8.0"
+  DOTNET_REQUIRES="Requires: aspnetcore-runtime-10.0"
 fi
 
 if [[ -n "$EXISTING_PUBLISH_DIR" ]]; then
@@ -273,7 +278,7 @@ else
   if [[ "$NO_RESTORE" == true ]]; then
     publish_args+=(--no-restore)
   fi
-  DISABLE_MCP=true dotnet "${publish_args[@]}"
+  DISABLE_MCP=true lintap_dotnet "${publish_args[@]}"
 
   if [[ "$SKIP_MCP" != true && -f "$MCP_PROJECT" ]]; then
     echo "==> Publishing MCP server separately ($RUNTIME)"
@@ -296,10 +301,12 @@ else
     if [[ "$NO_RESTORE" == true ]]; then
       mcp_publish_args+=(--no-restore)
     fi
-    dotnet "${mcp_publish_args[@]}"
+    lintap_dotnet "${mcp_publish_args[@]}"
     cp -R "$MCP_PUBLISH_ROOT"/. "$PUBLISH_DIR/mcp/"
   fi
 fi
+
+lintap_validate_runtimeconfig "$PUBLISH_DIR/Lintap.runtimeconfig.json" "$SELF_CONTAINED"
 
 if [[ "$SKIP_MCP" == true ]]; then
   # Ensure we don't accidentally package stale MCP artifacts from a prior build.
