@@ -3,6 +3,7 @@
 # Build a base Ubuntu image suitable for running Lintap sensor experiments and
 # process-creation validation against Lintap, Tetragon, Tracee, and Sysdig.
 set -euo pipefail
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 # Configuration file location
 CONFIG_FILE="${CONFIG_FILE:-multipass-config.env}"
@@ -13,12 +14,12 @@ CPUS="${CPUS:-4}"
 MEMORY="${MEMORY:-8G}"
 DISK="${DISK:-50G}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-24.04}"
-WINTAP_BRANCH="${WINTAP_BRANCH:-grantj-ebf-fixes}"
+WINTAP_BRANCH="${WINTAP_BRANCH:-develop}"
 CHECKOUT_WINTAP_BRANCH="${CHECKOUT_WINTAP_BRANCH:-false}"
 RUN_POSTCREATE_CHECKS="${RUN_POSTCREATE_CHECKS:-true}"
 BUILD_WINTAP="${BUILD_WINTAP:-false}"
 RUN_VALIDATION_MOCKS="${RUN_VALIDATION_MOCKS:-false}"
-CLOUD_INIT_STRICT="${CLOUD_INIT_STRICT:-false}"
+CLOUD_INIT_STRICT="${CLOUD_INIT_STRICT:-true}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -62,14 +63,14 @@ UBUNTU_VERSION="24.04"
 
 # Current Wintap/Lintap branch used by the eBPF validation work.
 # The script will not force checkout unless CHECKOUT_WINTAP_BRANCH=true.
-WINTAP_BRANCH="grantj-ebf-fixes"
+WINTAP_BRANCH="develop"
 CHECKOUT_WINTAP_BRANCH=false
 
 # Optional post-create checks. These run inside the VM after cloud-init.
 RUN_POSTCREATE_CHECKS=true
 BUILD_WINTAP=false
 RUN_VALIDATION_MOCKS=false
-CLOUD_INIT_STRICT=false
+CLOUD_INIT_STRICT=true
 
 # Mount configuration
 # Format: "host_path:instance_path[:options]"
@@ -101,8 +102,7 @@ if multipass list | grep -q "^${INSTANCE_NAME}"; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log "Stopping and deleting existing instance..."
         multipass stop "${INSTANCE_NAME}" 2>/dev/null || true
-        multipass delete "${INSTANCE_NAME}"
-        multipass purge
+        multipass delete --purge "${INSTANCE_NAME}"
     else
         log "Using existing instance"
         exit 0
@@ -152,6 +152,7 @@ multipass launch "${UBUNTU_VERSION}" \
     --cpus "${CPUS}" \
     --memory "${MEMORY}" \
     --disk "${DISK}" \
+    --timeout 1800 \
     "${MOUNT_ARGS[@]}" \
     --cloud-init - <<'EOF'
 #cloud-init
@@ -190,6 +191,9 @@ packages:
   - llvm
   - libelf-dev
   - zlib1g-dev
+  - libicu-dev
+  - libssl-dev
+  - libkrb5-3
   - linux-tools-common
   - linux-tools-generic
   # For packaging and smoke-test packages
@@ -228,33 +232,42 @@ runcmd:
     sdk_version=10.0.402
     sdk_root="/opt/wintap-sdk/$sdk_version"
     mkdir -p "$sdk_root"
-    curl --fail --location https://dot.net/v1/dotnet-install.sh -o "$sdk_root/dotnet-install.sh"
+    curl --fail --location --retry 3 https://dot.net/v1/dotnet-install.sh -o "$sdk_root/dotnet-install.sh"
     bash "$sdk_root/dotnet-install.sh" --version "$sdk_version" --install-dir "$sdk_root" --no-path
     test "$("$sdk_root/dotnet" --version)" = "$sdk_version"
     ln -s "$sdk_root/dotnet" /usr/local/bin/dotnet
     printf 'export DOTNET_ROOT=%s\nexport PATH=%s:$PATH\n' "$sdk_root" "$sdk_root" > /etc/profile.d/wintap-dotnet.sh
 
-  # Install bpftool best-effort. On Ubuntu ARM images the package may be
-  # provided by linux-tools-* rather than a standalone bpftool package.
+  # Ubuntu's bpftool wrapper needs tools for the running kernel, which may
+  # differ from linux-tools-generic after package_upgrade.
   - |
-    set -x
+    set -ex
     export DEBIAN_FRONTEND=noninteractive
     apt-get install -y bpftool || \
-      apt-get install -y "linux-tools-$(uname -r)" || \
-      apt-get install -y linux-tools-generic || \
-      true
+      apt-get install -y "linux-tools-$(uname -r)"
+    bpftool version
   
-  # Install DuckDB CLI. The default installer detects the right OS/arch, but installs only for the current user. Sigh.
+  # Match the qualified Python/native engine rather than following CLI latest.
   - |
-    set -x
-    sudo -u ubuntu -H bash -c 'curl -L https://install.duckdb.org | bash'
-    cp /home/ubuntu/.duckdb/cli/latest/duckdb /usr/local/bin/duckdb
+    set -ex
+    curl --fail --location --retry 3 https://install.duckdb.org -o /tmp/install-duckdb.sh
+    sudo -u ubuntu -H env DUCKDB_VERSION=1.5.6 bash /tmp/install-duckdb.sh
+    install -m 0755 /home/ubuntu/.duckdb/cli/1.5.6/duckdb /usr/local/bin/duckdb
 
   # Install uv for the validation harness and Wintap devtools.
   - |
-    set -x
-    sudo -u ubuntu -H bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+    set -ex
+    curl --fail --location --retry 3 https://astral.sh/uv/install.sh -o /tmp/install-uv.sh
+    sudo -u ubuntu -H sh /tmp/install-uv.sh
     ln -sf /home/ubuntu/.local/bin/uv /usr/local/bin/uv
+
+  # Native VM storage avoids reusing a mounted macOS/Windows Python environment.
+  - |
+    set -ex
+    sudo -u ubuntu -H uv venv /home/ubuntu/.venvs/lintap-dev --python /usr/bin/python3
+    sudo -u ubuntu -H uv pip install --python /home/ubuntu/.venvs/lintap-dev/bin/python \
+      'duckdb==1.5.6' 'pytest>=8.4,<9' psutil jinja2
+    printf 'export PATH=/home/ubuntu/.venvs/lintap-dev/bin:$PATH\n' > /etc/profile.d/lintap-python.sh
 
   # Make mounted repos easier to use from tools that care about ownership.
   - |
@@ -262,6 +275,7 @@ runcmd:
     git config --system --add safe.directory /home/ubuntu/git/wintap || true
     git config --system --add safe.directory /home/ubuntu/git/Wintap-Analytics || true
     git config --system --add safe.directory /home/ubuntu/git/Lintap || true
+    git config --system --add safe.directory /home/ubuntu/git/Wintappy || true
 
   # Convenience directories for validation output.
   - mkdir -p /home/ubuntu/data/lintap /tmp/validation-runs
@@ -271,7 +285,7 @@ final_message: "LinTap dev environment is ready. Connect with: multipass shell <
 EOF
 
 log "Waiting for instance to be ready..."
-if ! multipass exec "${INSTANCE_NAME}" -- cloud-init status --wait; then
+if ! multipass exec "${INSTANCE_NAME}" -- sudo cloud-init status --wait; then
     warn "cloud-init reported an error. Recent cloud-init output follows."
     multipass exec "${INSTANCE_NAME}" -- sudo cloud-init status --long || true
     multipass exec "${INSTANCE_NAME}" -- sudo tail -n 120 /var/log/cloud-init-output.log || true
@@ -292,7 +306,7 @@ run_in_instance() {
 
 if bool_is_true "${RUN_POSTCREATE_CHECKS}"; then
     log "Running post-create checks"
-    run_in_instance 'set -e; echo "kernel=$(uname -r) arch=$(uname -m)"; dotnet --info >/tmp/dotnet-info.txt; clang --version | head -1; bpftool version | head -1 || true; uv --version; duckdb --version; test -r /sys/kernel/btf/vmlinux && echo BTF_OK || echo BTF_MISSING'
+    multipass exec "${INSTANCE_NAME}" -- bash -s < "$SCRIPT_DIR/multipass-check-dev.sh"
 fi
 
 if bool_is_true "${CHECKOUT_WINTAP_BRANCH}"; then
@@ -302,16 +316,16 @@ fi
 
 if bool_is_true "${BUILD_WINTAP}"; then
     log "Building Wintap/Lintap inside VM"
-    run_in_instance 'cd /home/ubuntu/git/wintap/wintap && make build_ebpf && make build_dotnet'
+    run_in_instance 'cd /home/ubuntu/git/wintap/wintap && make build_ebpf && make build_dotnet NATIVE_BUILD_ROOT=/home/ubuntu/.local/share/lintap-build DOTNET_BUILD_FLAGS="-p:NativeBuildRoot=/home/ubuntu/.local/share/lintap-build/ -p:OutputPath=/home/ubuntu/.local/share/lintap-build/bin/Debug/net10.0/"'
 fi
 
 if bool_is_true "${RUN_VALIDATION_MOCKS}"; then
     log "Running Wintap-Analytics validation harness mock tests inside VM"
-    run_in_instance 'cd /home/ubuntu/git/Wintap-Analytics/validation/process-creation && uv run --extra dev pytest && uv run wpv-mock-run --run-dir /tmp/validation-runs/wpv-mock --run-id multipass-mock'
+    run_in_instance 'cd /home/ubuntu/git/Wintap-Analytics/validation/process-creation && export UV_PROJECT_ENVIRONMENT=/home/ubuntu/.venvs/process-creation && uv run --extra dev pytest && uv run wpv-mock-run --run-dir /tmp/validation-runs/wpv-mock --run-id multipass-mock'
 fi
 
 log "Configuring ~/.ssh/config"
-LINTAP_INSTANCE=${INSTANCE_NAME} ./config-ssh.sh
+LINTAP_INSTANCE=${INSTANCE_NAME} bash "$SCRIPT_DIR/config-ssh.sh"
 
 echo
 echo -e "${BLUE}=== Connection Information ===${NC}"
@@ -324,11 +338,10 @@ echo "  ssh ${INSTANCE_NAME}"
 echo
 echo "Useful VM checks:"
 echo "  ssh ${INSTANCE_NAME} 'uname -a; test -r /sys/kernel/btf/vmlinux && echo BTF_OK || echo BTF_MISSING'"
-echo "  ssh ${INSTANCE_NAME} 'cd /home/ubuntu/git/wintap/wintap && make build_ebpf && make build_dotnet'"
-echo "  ssh ${INSTANCE_NAME} 'cd /home/ubuntu/git/Wintap-Analytics/validation/process-creation && uv run --extra dev pytest'"
+echo "  See Multipass.md for native-output builds and guest-local validation environments."
 echo
 echo "Lintap process smoke test inside VM:"
-echo "  ssh ${INSTANCE_NAME} 'cd /home/ubuntu/git/wintap && sudo python3 devtools/process_capture_smoke_test.py --start-lintap --lintap-dll /home/ubuntu/git/wintap/wintap/bin/Debug/net10.0/Lintap.dll --timeout 240 --poll-interval 5'"
+echo "  See Multipass.md for the native-output build and process smoke commands."
 echo
 echo "VS Code Remote SSH:"
 echo "  1. Install 'Remote - SSH' extension"
