@@ -19,7 +19,7 @@ require_command() {
 
 : "${PIDSTAT_VENV_DIR:=/opt/lintap/pidstat-collector/.venv}"
 : "${PIDSTAT_BOOTSTRAP_PYTHON:=3.12}"
-: "${PIDSTAT_DUCKDB_SPEC:=duckdb>=1.5.2}"
+: "${PIDSTAT_DUCKDB_SPEC:=duckdb==1.5.6}"
 
 require_command uv
 

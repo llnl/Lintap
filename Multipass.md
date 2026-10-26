@@ -24,6 +24,28 @@ cp multipass-config.env.example multipass-config.env
 
 Much whirring will occur as the VM is brought up and configured. Something could go wrong... check the cloud-init YAML that is embedded in the script to help debug.
 
+Both provisioning scripts install SDK **10.0.402** in stable host-local
+`/opt/wintap-sdk/10.0.402` and expose it on PATH. This includes .NET/ASP.NET Core 10;
+it does not install a distribution-selected SDK patch. Package builders additionally
+check the Wintap checkout's `global.json` before any cleanup/build work.
+
+Both Bash and PowerShell launchers also install:
+
+- Ubuntu 24.04's current Clang/LLVM, libbpf/libelf development packages, headers,
+  and `bpftool` for the running kernel.
+- DuckDB CLI **1.5.6**, matching the qualified Python/native engine.
+- `uv` and a guest-local Python environment at `/home/ubuntu/.venvs/lintap-dev`
+  with DuckDB **1.5.6**, pytest, psutil, and Jinja2. Login shells add it to PATH.
+
+Post-create checks require the exact SDK, both .NET 10 shared runtimes, a working
+BPF compiler target, readable/parseable kernel BTF, and matching CLI/Python DuckDB.
+Cloud-init errors fail creation by default (`CLOUD_INIT_STRICT=true`). To repeat
+the dependency checks without recreating the VM, run from the Lintap checkout:
+
+```sh
+multipass exec lintap-dev -- bash -s < multipass-check-dev.sh
+```
+
 Once complete, you can connect with:
 
 ```sh
@@ -59,16 +81,21 @@ Build Wintap/Lintap:
 ```sh
 cd /home/ubuntu/git/wintap/wintap
 make build_ebpf
-make build_dotnet
+make build_dotnet NATIVE_BUILD_ROOT=/home/ubuntu/.local/share/lintap-build \
+  DOTNET_BUILD_FLAGS="-p:NativeBuildRoot=/home/ubuntu/.local/share/lintap-build/ -p:OutputPath=/home/ubuntu/.local/share/lintap-build/bin/Debug/net10.0/"
 ```
+
+`BUILD_WINTAP=true` runs these same commands. Managed outputs/intermediates use
+native guest storage, avoiding shared-mount runtime/mmap issues. Keep Python
+environments in the guest too; a host macOS/Windows `.venv` is not reusable in Linux.
 
 Run the Lintap process smoke test:
 
 ```sh
 cd /home/ubuntu/git/wintap
-sudo python3 devtools/process_capture_smoke_test.py \
+sudo /home/ubuntu/.venvs/lintap-dev/bin/python devtools/process_capture_smoke_test.py \
   --start-lintap \
-  --lintap-dll /home/ubuntu/git/wintap/wintap/bin/Debug/net8.0/Lintap.dll \
+  --lintap-dll /home/ubuntu/.local/share/lintap-build/bin/Debug/net10.0/Lintap.dll \
   --timeout 240 \
   --poll-interval 5
 ```
@@ -77,6 +104,7 @@ Run the Wintap-Analytics validation harness mock tests:
 
 ```sh
 cd /home/ubuntu/git/Wintap-Analytics/validation/process-creation
+export UV_PROJECT_ENVIRONMENT=/home/ubuntu/.venvs/process-creation
 uv run --extra dev pytest
 uv run wpv-mock-run --run-dir /tmp/validation-runs/wpv-mock --run-id multipass-mock
 ```
@@ -86,12 +114,12 @@ uv run wpv-mock-run --run-dir /tmp/validation-runs/wpv-mock --run-id multipass-m
 `multipass-config.env` can set:
 
 ```sh
-WINTAP_BRANCH="grantj-ebf-fixes"
+WINTAP_BRANCH="develop"
 CHECKOUT_WINTAP_BRANCH=false
 RUN_POSTCREATE_CHECKS=true
 BUILD_WINTAP=false
 RUN_VALIDATION_MOCKS=false
+CLOUD_INIT_STRICT=true
 ```
 
 Keep `BUILD_WINTAP=false` for fast VM creation. Set it to `true` when you want the script to build eBPF and .NET immediately after cloud-init finishes.
-

@@ -5,7 +5,7 @@
 - Linux system with root access
 - Sufficient disk space for data collection
 - eBPF Tools
-- DotNet 8.0 Core
+- .NET 10 SDK 10.0.402 (see [packaging SDK selection](../packaging/README.md#installselect-the-pinned-sdk))
 - Python
 - DuckDB for local TeleTap summaries
 - Git repos for: Wintap and Lintap
