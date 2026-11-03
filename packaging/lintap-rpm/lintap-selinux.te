@@ -1,0 +1,24 @@
+module lintap-selinux 1.1;
+
+require {
+        type init_t;
+        type tmp_t;
+        type lib_t;
+        type var_log_t;
+        attribute port_type;
+        class process getsession;
+        class sock_file { create unlink };
+        class fifo_file { create unlink };
+        class file write;
+        class tcp_socket name_connect;
+        class dir rmdir;
+}
+
+type lintap_s3_port_t, port_type;
+
+allow init_t lintap_s3_port_t:tcp_socket name_connect;
+allow init_t lib_t:file write;
+allow init_t self:process getsession;
+allow init_t tmp_t:fifo_file { create unlink };
+allow init_t tmp_t:sock_file { create unlink };
+allow init_t var_log_t:dir rmdir;
