@@ -1,0 +1,40 @@
+<mxfile host="65bd71144e">
+    <diagram id="Jpd_dnokkXtmwGafcgMN" name="Page-1">
+        <mxGraphModel dx="929" dy="556" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="11" value="&lt;div&gt;&lt;ul&gt;&lt;li&gt;&lt;span style=&quot;font-size: 24px;&quot;&gt;&lt;b&gt;On-host&lt;/b&gt;&lt;/span&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" style="text;html=1;strokeColor=default;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="30" y="10" width="350" height="690" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="&lt;h1&gt;&amp;nbsp; &amp;nbsp;Sysdig&lt;/h1&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;Multiple chisels running processing specific event types.&lt;/li&gt;&lt;li&gt;Output is written to TSVs frequently: 10 seconds&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" style="text;html=1;strokeColor=default;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="50" width="260" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" value="Tiny TSVs&lt;br&gt;Paritioned by Day" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
+                    <mxGeometry x="67" y="270" width="115" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" value="" style="endArrow=classic;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.25;exitY=1;exitDx=0;exitDy=0;" parent="1" source="3" target="4" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="450" y="360" as="sourcePoint"/>
+                        <mxPoint x="500" y="310" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="6" value="SCAP written every 50MB" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="270" width="110" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="7" value="" style="endArrow=classic;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" parent="1" source="3" target="6" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="135" y="220" as="sourcePoint"/>
+                        <mxPoint x="135" y="280" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="9" value="&lt;h1&gt;&amp;nbsp; &amp;nbsp;Target: Wintap Schema&lt;/h1&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;Column conversions&lt;/li&gt;&lt;li&gt;Row-wise conversions?&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" style="text;html=1;strokeColor=default;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="490" y="370" width="310" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="&lt;h1&gt;&amp;nbsp; &amp;nbsp;Merge Raw&lt;/h1&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;Merge tiny files into parquet&lt;/li&gt;&lt;li&gt;Partition by DayPK&lt;/li&gt;&lt;li&gt;De-dup* rows&lt;/li&gt;&lt;li&gt;Fields&lt;/li&gt;&lt;ul&gt;&lt;li&gt;Convert raw_time to real_time (TS)&lt;/li&gt;&lt;li&gt;&lt;br&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;" style="text;html=1;strokeColor=default;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="390" width="310" height="230" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
