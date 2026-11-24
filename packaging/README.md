@@ -368,6 +368,62 @@ sudo systemctl start lintap
 sudo systemctl start lintap-pidstat
 ```
 
+## SELinux policy module (RHEL)
+
+Source: [`lintap-rpm/lintap-selinux.te`](lintap-rpm/lintap-selinux.te).
+Build/install separately from the application RPM; keep SELinux enforcing.
+Rules apply to the shared `init_t` domain, not a dedicated Lintap domain.
+Commands below start from the parent directory containing both checkouts.
+
+### Build and deploy
+
+```sh
+sudo dnf install -y checkpolicy policycoreutils-python-utils policycoreutils \
+  policycoreutils-devel setools-console
+mkdir -p artifacts/lintap-selinux
+checkmodule -M -m -o artifacts/lintap-selinux/lintap-selinux.mod \
+  Lintap/packaging/lintap-rpm/lintap-selinux.te
+semodule_package -o artifacts/lintap-selinux/lintap-selinux.pp \
+  -m artifacts/lintap-selinux/lintap-selinux.mod
+sudo semodule -i artifacts/lintap-selinux/lintap-selinux.pp
+
+# Use the configured S3 endpoint's TCP port (3900 is an example).
+sudo semanage port -l -C
+sudo semanage port -a -t lintap_s3_port_t -p tcp 3900
+# Existing explicit mapping: review its current type before using -m instead of -a.
+```
+
+### Inspect policy, labels, and events
+
+```sh
+getenforce
+sudo semodule -lfull | grep -F lintap-selinux
+sudo semanage port -l | grep -w lintap_s3_port_t
+sesearch --allow -s init_t -t lintap_s3_port_t -c tcp_socket -p name_connect
+ps -eZ | grep -i lintap
+ls -Zd /usr/lib/lintap /var/log/lintap/data /var/log/lintap/runtime
+
+sudo systemctl is-active auditd
+sudo auditctl -s
+sudo ausearch -x /usr/lib/lintap/Lintap -m AVC,USER_AVC -ts recent -i
+sudo ausearch -m MAC_POLICY_LOAD,MAC_CONFIG_CHANGE -ts recent -i
+sudo journalctl -u lintap -b --no-pager -n 100
+sudo tail -n 100 /var/log/lintap/runtime/Logs/Lintap.log
+```
+
+Reproduce the failed operation before querying; use `-ts today` for older events.
+Filter by executable, not thread `comm`. `permissive=1` means logged, not blocked.
+Port labels are host-wide; review AVCs before changing grants or existing labels.
+Use configured data/runtime paths if defaults are overridden.
+
+### Remove manual deployment
+
+```sh
+# Only if this workflow added the override; otherwise restore its prior type.
+sudo semanage port -d -p tcp 3900
+sudo semodule -r lintap-selinux
+```
+
 ## Package and service smoke test
 
 Check the installed payload and service configuration:
