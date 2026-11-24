@@ -22,5 +22,11 @@ compatibility. Clone collection is enabled by default; set
 `WINTAP_ENABLE_CLONE_SENSOR=false` to opt out. Inspect HOST runtime capability
 receipts for actual attach outcomes and fallback limitations.
 
+Periodic Refresh defaults to one hour. For repeated-exec qualification, set
+`WINTAP_PROCESS_REFRESH_ENABLED=true`,
+`WINTAP_PROCESS_REFRESH_INTERVAL_MINUTES=1`, and
+`WINTAP_PROCESS_REFRESH_OFFSET_MINUTES=0` in `/etc/lintap/lintap.env` before
+starting the service.
+
 See [Paths and Configuration](../PATHS_AND_CONFIGURATION.md) for root overrides
 and shared-volume guidance.

@@ -525,8 +525,8 @@ set -e
 
 case "${1:-}" in
 configure)
-    mkdir -p /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
-    chmod 0750 /var/log/lintap /var/log/lintap/Logs /var/log/lintap/parquet
+    mkdir -p /var/log/lintap /var/log/lintap/data /var/log/lintap/runtime
+    chmod 0750 /var/log/lintap /var/log/lintap/data /var/log/lintap/runtime
 
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload || true

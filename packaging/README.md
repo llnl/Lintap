@@ -353,6 +353,18 @@ The package enables, but does not automatically start, `lintap.service` and
    fallback thread classification is best-effort if syscall flag hooks fail.
    Upgrades preserve locally edited environment files: check for an old false
    setting rather than assuming the new package overrides administrator choices.
+   Periodic Refresh is enabled at the safe default of one hour. For the bounded
+   repeated-exec qualification workload, set these values in
+   `/etc/lintap/lintap.env` before starting the service:
+
+   ```text
+   WINTAP_PROCESS_REFRESH_ENABLED=true
+   WINTAP_PROCESS_REFRESH_INTERVAL_MINUTES=1
+   WINTAP_PROCESS_REFRESH_OFFSET_MINUTES=0
+   ```
+
+   Refresh is current-state evidence; it does not replace exec-attempt or
+   exec-success observations.
 4. Bootstrap pidstat only if it is required:
 
    ```sh
@@ -377,7 +389,7 @@ test -x /usr/lib/lintap/Lintap
 test -x /usr/bin/lintap
 find /usr/lib/lintap/tracers -maxdepth 1 -name '*.bpf.o' -print | sort
 systemctl cat lintap
-grep -E '^(WINTAP_DATA_ROOT|WINTAP_RUNTIME_ROOT|WINTAP_ENABLE_.*_SENSOR)=' \
+grep -E '^(WINTAP_DATA_ROOT|WINTAP_RUNTIME_ROOT|WINTAP_ENABLE_.*_SENSOR|WINTAP_PROCESS_REFRESH_)=' \
   /etc/lintap/lintap.env
 ```
 
