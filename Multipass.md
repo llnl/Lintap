@@ -120,6 +120,11 @@ RUN_POSTCREATE_CHECKS=true
 BUILD_WINTAP=false
 RUN_VALIDATION_MOCKS=false
 CLOUD_INIT_STRICT=true
+CLOUD_INIT_DIAGNOSTIC_TIMEOUT=20
 ```
+
+Each best-effort cloud-init error-reporting command is bounded by
+`CLOUD_INIT_DIAGNOSTIC_TIMEOUT` seconds so an unreachable guest cannot leave the
+host launcher wedged after provisioning has already failed.
 
 Keep `BUILD_WINTAP=false` for fast VM creation. Set it to `true` when you want the script to build eBPF and .NET immediately after cloud-init finishes.
