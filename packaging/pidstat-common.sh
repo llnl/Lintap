@@ -100,8 +100,8 @@ import sys
 binary = pathlib.Path(sys.argv[1])
 manifest = {
     'go': '1.27.3', 'os': 'linux', 'arch': sys.argv[2], 'cgo_enabled': False,
-    'source_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
-    'source_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--', '.'], text=True)),
+    'source_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], universal_newlines=True).strip(),
+    'source_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--', '.'], universal_newlines=True)),
     'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
     'go_mod_sha256': hashlib.sha256(pathlib.Path('go.mod').read_bytes()).hexdigest(),
     'go_sum_sha256': hashlib.sha256(pathlib.Path('go.sum').read_bytes()).hexdigest(),

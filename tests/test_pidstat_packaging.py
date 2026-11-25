@@ -1,14 +1,45 @@
 """Build-host pidstat release contract; no services, VM or runtime downloads."""
 from pathlib import Path
 import os
+import hashlib
+import json
 import struct
 import subprocess
+import sys
 
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / 'packaging/pidstat-common.sh'
+
+
+@pytest.mark.parametrize('dirty', [False, True])
+def test_manifest_uses_python36_subprocess_api(tmp_path, monkeypatch, dirty):
+    # Execute the shipping manifest code with a Python 3.6-compatible API shim.
+    code = HELPER.read_text().split('<<\'PY\'')[-1].split('\nPY')[0]
+    binary = tmp_path / 'pidstat-collector'
+    binary.write_bytes(b'fixture binary')
+    (tmp_path / 'go.mod').write_text('fixture module')
+    (tmp_path / 'go.sum').write_text('fixture sums')
+    calls = []
+
+    def check_output(args, *, universal_newlines=False):
+        assert universal_newlines is True
+        calls.append(args)
+        return 'fixture-revision\n' if args[1] == 'rev-parse' else ' M collector.go\n' if dirty else ''
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+    monkeypatch.setattr(sys, 'argv', ['manifest', str(binary), 'amd64'])
+    monkeypatch.chdir(tmp_path)
+    exec(compile(code, str(HELPER), 'exec'), {})
+    manifest = json.loads(binary.with_suffix('.build.json').read_text())
+    assert manifest['source_revision'] == 'fixture-revision'
+    assert manifest['source_dirty'] is dirty
+    assert manifest['binary_sha256'] == hashlib.sha256(binary.read_bytes()).hexdigest()
+    assert manifest['go_mod_sha256'] == hashlib.sha256((tmp_path / 'go.mod').read_bytes()).hexdigest()
+    assert manifest['go_sum_sha256'] == hashlib.sha256((tmp_path / 'go.sum').read_bytes()).hexdigest()
+    assert len(calls) == 2
 
 
 def shell(code, *args, env=None):
