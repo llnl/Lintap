@@ -22,7 +22,19 @@ def test_cloud_init_uses_mount_safe_python_setup():
     )
 
 
-@pytest.mark.parametrize("failure", ["cloud-init", "dependencies"])
+def test_both_launchers_install_pinned_go_before_checks():
+    for name in ("multipass-lintap.sh", "multipass-lintap.ps1"):
+        script = (ROOT / name).read_text()
+        assert "packaging/install-build-go.sh" in script
+        assert script.index("packaging/install-build-go.sh") < script.index("Running post-create checks")
+        assert "sudo bash -s" in script
+    checks = (ROOT / "multipass-check-dev.sh").read_text()
+    assert "GO=/opt/lintap-go/1.27.3/bin/go" in checks
+    assert 'env GOVERSION)' in checks
+    assert 'lintap_require_dotnet_sdk' in checks
+
+
+@pytest.mark.parametrize("failure", ["cloud-init", "go-install", "dependencies"])
 def test_failed_provisioning_stops_before_build(tmp_path, failure):
     tools = tmp_path / "tools"
     tools.mkdir()
@@ -38,7 +50,10 @@ case "$1" in
     case "$*" in
       *'cloud-init status --wait')
         [ "$FAILURE" != cloud-init ]; exit $? ;;
-      *'-- bash -s')
+       *'-- sudo bash -s')
+         cat > /dev/null
+         [ "$FAILURE" != go-install ]; exit $? ;;
+       *'-- bash -s')
         cat > /dev/null
         [ "$FAILURE" != dependencies ]; exit $? ;;
       *) exit 0 ;;

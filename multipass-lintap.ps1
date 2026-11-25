@@ -517,6 +517,11 @@ if ($LASTEXITCODE -ne 0) {
     Write-Warn 'Continuing because CLOUD_INIT_STRICT is not true. Post-create checks may still fail if setup is incomplete.'
 }
 
+# Same pinned build-host installer as the Bash launcher; failure is fatal.
+$goSetup = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'packaging/install-build-go.sh') -Raw).Replace("`r`n", "`n")
+$goSetup | & multipass exec $instanceName -- sudo bash -s
+if ($LASTEXITCODE -ne 0) { Write-Fail 'Go build-tool installation failed' }
+
 $instanceIp = (& multipass info $instanceName | Where-Object { $_ -match '^IPv4' } | ForEach-Object { ($_ -split '\s+')[1] } | Select-Object -First 1)
 
 Write-Log 'Instance created successfully!'

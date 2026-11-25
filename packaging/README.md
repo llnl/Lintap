@@ -44,19 +44,45 @@ target kernel before release. The current RPM builder must run natively on an
 
 ## Build prerequisites
 
-Both formats require the **.NET 10 SDK, qualified version `10.0.402`**, Clang/LLVM, GNU Make, bpftool, libbpf
+Both formats require a **stable .NET 10 SDK**, Clang/LLVM, GNU Make, bpftool, libbpf
 development headers, libelf development headers, and Linux kernel/BTF support
 appropriate to the target.
 
 Python 3 is also required for SDK-baseline and staged-runtimeconfig validation.
 
+Go **1.27.3** is required on the build host for the static pidstat collector,
+including builds using staged managed output. It is not an installed-host/runtime
+dependency. Both Multipass launchers install it in guest-native storage and verify
+it before builds. Distribution `golang` packages may not provide the pinned version.
+
+For an existing Linux amd64/arm64 development VM, explicitly install the tool
+without recreating the VM (network/download and software-installation approval required):
+
+```sh
+sudo bash Lintap/packaging/install-build-go.sh
+source /etc/profile.d/lintap-go.sh
+"$GO" version
+```
+
+The installer verifies the archive against official HTTPS release metadata, checks
+the extracted version, and installs under `/opt/lintap-go/1.27.3` without replacing
+system Go. It refuses an invalid existing installation. For a user-local install:
+
+```sh
+LINTAP_GO_INSTALL_ROOT="$HOME/.local/lintap-go" bash Lintap/packaging/install-build-go.sh
+export GO="$HOME/.local/lintap-go/1.27.3/bin/go"
+export GOTOOLCHAIN=local
+```
+
+Keep `GO` set for package builds; module downloads also require working CA trust
+and network access or an operator-verified module cache. No toolchain pin is relaxed.
+
 The SDK source of truth is the sibling [`wintap/global.json`](../../wintap/global.json).
-It specifies `10.0.402`, `rollForward: latestPatch`, and no prereleases. For repeatable
-package qualification, require the exact version, not merely any .NET 10 SDK.
-`latestPatch` permits newer patches during ordinary development; it is not an exact
-release-build pin. SDK `10.0.402` is distinct from the bundled runtime's version;
-record the generated `Lintap.runtimeconfig.json` rather than calling the runtime
-`10.0.402`.
+It specifies minimum `10.0.100`, `rollForward: latestMinor`, and no prereleases.
+Both builders use the stable .NET 10 SDK resolved from the project directory and
+record its actual version; `10.0.402` is valid but not mandatory. Record the generated
+`Lintap.runtimeconfig.json` separately: SDK and bundled runtime versions differ.
+Passing SDK preflight is not native package qualification.
 
 Ubuntu package names:
 
@@ -76,38 +102,36 @@ sudo dnf install -y rpm-build clang llvm make bpftool \
 Verify `/sys/kernel/btf/vmlinux` before expecting a native CO-RE build. The
 builders always require and validate the tracepoint fallback objects.
 
-### Install/select the pinned SDK
+### Install/select a stable .NET 10 SDK
 
 Distribution package names `dotnet-sdk-10.0` select a version available in the
-enabled repositories, **not necessarily `10.0.402`**. On RHEL 9, .NET 10 is supplied
+enabled repositories. On RHEL 9, .NET 10 is supplied
 by Red Hat AppStream; do not add a second vendor's RPM feed to fix a version mismatch.
 Check available versions before choosing a package-manager installation. If the
-exact SDK is unavailable, use an approved official SDK archive or the isolated
+stable SDK is unavailable, use an approved official SDK archive or the isolated
 installation below, with network access and local software-installation approval.
 Do not replace an existing system SDK or virtual environment.
 
 From the parent directory containing both checkouts:
 
 ```bash
-SDK_VERSION=$(python3 -c 'import json; print(json.load(open("wintap/global.json"))["sdk"]["version"])')
-test "$SDK_VERSION" = 10.0.402 || { echo "SDK baseline changed; review qualification before continuing"; exit 1; }
-export DOTNET_ROOT="$HOME/.dotnet/wintap-sdk-$SDK_VERSION"
+export DOTNET_ROOT="$HOME/.dotnet/wintap-sdk-10"
 mkdir -p "$DOTNET_ROOT"
 curl --fail --location https://dot.net/v1/dotnet-install.sh -o "$DOTNET_ROOT/dotnet-install.sh"
 # Inspect/approve the downloaded installer before running it; do not curl | bash.
-bash "$DOTNET_ROOT/dotnet-install.sh" --version "$SDK_VERSION" --install-dir "$DOTNET_ROOT" --no-path
+bash "$DOTNET_ROOT/dotnet-install.sh" --channel 10.0 --quality GA --install-dir "$DOTNET_ROOT" --no-path
 export PATH="$DOTNET_ROOT:$PATH"
-test "$(dotnet --version)" = "$SDK_VERSION" || { echo "Wrong SDK selected"; exit 1; }
-(cd wintap && test "$(dotnet --version)" = "$SDK_VERSION") || { echo "Wintap SDK selection differs"; exit 1; }
+source Lintap/packaging/dotnet-common.sh
+lintap_require_dotnet_sdk wintap/wintap
 dotnet --info
 dotnet --list-runtimes
 ```
 
-If an approved package-manager installation already selects the exact SDK, omit
-the download/install steps and run both version checks. Keep the selected SDK on
+If an approved package-manager installation already supplies a stable .NET 10 SDK,
+omit the download/install steps and run the shared preflight. Keep the selected SDK on
 `PATH` for every build. Both builders resolve `global.json` above the selected
 project, run every `dotnet` command from that project directory, and reject a
-selected SDK differing from the exact baseline before cleanup or native compilation.
+prerelease, older-than-baseline or non-.NET-10 SDK before cleanup or native compilation.
 This applies even with `--publish-dir`; staged output must include a valid
 `Lintap.runtimeconfig.json` targeting `net10.0` with .NET 10.0 frameworks.
 Its framework-dependent/self-contained shape must match the selected package mode.
@@ -164,7 +188,7 @@ sudo dnf install -y git curl ca-certificates python3 gcc clang llvm make \
   glibc libgcc libstdc++ openssl-libs libicu tzdata krb5-libs
 ```
 
-Then select SDK `10.0.402` as above. Package availability depends on the enabled
+Then select a stable .NET 10 SDK as above. Package availability depends on the enabled
 repositories and RHEL minor release; do not substitute arbitrary third-party
 libraries. `kernel-devel-$(uname -r)` is needed if building kernel-dependent tooling,
 but does not substitute for `/sys/kernel/btf/vmlinux` in this CO-RE build.
@@ -183,7 +207,8 @@ git -C Lintap rev-parse HEAD
 git -C wintap rev-parse HEAD
 git -C Lintap status --short
 git -C wintap status --short
-test "$(dotnet --version)" = 10.0.402 || { echo "Wrong SDK selected"; exit 1; }
+source Lintap/packaging/dotnet-common.sh
+lintap_require_dotnet_sdk wintap/wintap
 bash Lintap/packaging/lintap-rpm/build-rpm.sh \
   --version 0.1.0 --release 2.net10closure.el9 \
   --arch x86_64 --runtime linux-x64 \
@@ -256,7 +281,7 @@ bash Lintap/packaging/lintap-deb/build-deb.sh \
 
 The default package is self-contained. `--framework-dependent` now declares
 `aspnetcore-runtime-10.0` in both Debian and RPM metadata. Both modes validate
-the main staged app's .NET 10 runtimeconfig; exact-SDK, caller-directory and stale
+the main staged app's .NET 10 runtimeconfig; stable-SDK, caller-directory and stale
 payload regressions are in `tests/test_dotnet_packaging.py`. Fresh Linux package
 build/inspection and installed-runtime acceptance remain qualification gates;
 source/test alignment alone is not release certification. The corrective inventory

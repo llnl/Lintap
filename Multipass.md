@@ -31,6 +31,13 @@ check the Wintap checkout's `global.json` before any cleanup/build work.
 
 Both Bash and PowerShell launchers also install:
 
+- Go **1.27.3** for building the static pidstat collector, verified against official
+  release checksums and installed under `/opt/lintap-go/1.27.3`. New login shells
+  receive `GO`, `GOTOOLCHAIN=local` and PATH through `/etc/profile.d/lintap-go.sh`.
+  Go is build-host-only, not a packaged runtime dependency. Existing VMs need not
+  be recreated: run `sudo bash Lintap/packaging/install-build-go.sh` from the sibling
+  checkout parent, then `source /etc/profile.d/lintap-go.sh` before packaging.
+
 - Ubuntu 24.04's current Clang/LLVM, libbpf/libelf development packages, headers,
   and `bpftool` for the running kernel.
 - DuckDB CLI **1.5.6**, matching the qualified Python/native engine.

@@ -327,6 +327,10 @@ if ! multipass exec "${INSTANCE_NAME}" -- sudo cloud-init status --wait; then
     warn "Continuing because CLOUD_INIT_STRICT is not true. Post-create checks may still fail if setup is incomplete."
 fi
 
+# Install the pinned build-host Go tool in guest-native storage. This also runs
+# when optional post-create checks are disabled; failures stop provisioning.
+multipass exec "${INSTANCE_NAME}" -- sudo bash -s < "$SCRIPT_DIR/packaging/install-build-go.sh"
+
 # Get instance IP for SSH
 INSTANCE_IP=$(multipass info "${INSTANCE_NAME}" | grep IPv4 | awk '{print $2}')
 
