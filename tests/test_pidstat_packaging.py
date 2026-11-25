@@ -142,6 +142,9 @@ def test_package_go_contract(format):
     assert 'lintap_build_pidstat "$SCRIPT_DIR/../../pidstat-go"' in builder
     assert (directory / '../../pidstat-go/go.mod').is_file()
     assert 'lintap_stage_pidstat' in builder
+    if format == 'rpm':
+        files = builder.split('\n%files\n', 1)[1].split('\n%changelog', 1)[0]
+        assert '%doc /usr/share/doc/lintap/pidstat-collector.build.json' in files
     assert 'ExecStart=/usr/lib/lintap/pidstat-collector --collect' in unit
     assert 'EnvironmentFile=-/etc/lintap/lintap.env' in unit
     assert 'User=root' in unit

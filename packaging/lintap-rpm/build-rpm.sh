@@ -513,6 +513,7 @@ fi
 %files
 %doc /usr/share/doc/lintap/README.md
 %doc /usr/share/doc/lintap/PATHS_AND_CONFIGURATION.md
+%doc /usr/share/doc/lintap/pidstat-collector.build.json
 /usr/bin/lintap
 /usr/lib/lintap
 /usr/lib/systemd/system/lintap.service
