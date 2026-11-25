@@ -1,10 +1,12 @@
-# pidstat Go collector — unpackaged fpc-03 checkpoint
+# pidstat Go collector
 
-**Not packaged or release-qualified.** fpc-01 proved captured
+**Package integration in development; platform release qualification pending.** fpc-01 proved captured
 Python TSV encoding and static binaries and was approved by the human. fpc-02 adds
 the proc sampler, Linux configuration resolution, raw-input replay and bounded live
-diagnostics. The existing Python collector, launch/bootstrap scripts and services
-remain unchanged. fpc-01/fpc-02 are human-approved; fpc-03 adds durable collector,
+diagnostics. Debian/RPM builders now stage a release-named static Go executable;
+both services execute `/usr/lib/lintap/pidstat-collector --collect` directly.
+Python source remains a test reference, not a package payload.
+fpc-01/fpc-02 are human-approved; fpc-03 adds durable collector,
 spool/recovery and writer integration and awaits acceptance. Package/service,
 paired-live, comparative-resource and canonical DBT qualification remain separate.
 The operator reports the binary running on RHEL 8/amd64; native host evidence has

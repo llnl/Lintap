@@ -20,6 +20,7 @@ RUN_POSTCREATE_CHECKS="${RUN_POSTCREATE_CHECKS:-true}"
 BUILD_WINTAP="${BUILD_WINTAP:-false}"
 RUN_VALIDATION_MOCKS="${RUN_VALIDATION_MOCKS:-false}"
 CLOUD_INIT_STRICT="${CLOUD_INIT_STRICT:-true}"
+CLOUD_INIT_DIAGNOSTIC_TIMEOUT="${CLOUD_INIT_DIAGNOSTIC_TIMEOUT:-20}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -71,6 +72,7 @@ RUN_POSTCREATE_CHECKS=true
 BUILD_WINTAP=false
 RUN_VALIDATION_MOCKS=false
 CLOUD_INIT_STRICT=true
+CLOUD_INIT_DIAGNOSTIC_TIMEOUT=20
 
 # Mount configuration
 # Format: "host_path:instance_path[:options]"
@@ -114,6 +116,31 @@ bool_is_true() {
         true|TRUE|1|yes|YES|y|Y) return 0 ;;
         *) return 1 ;;
     esac
+}
+
+run_with_timeout() {
+    local timeout_seconds=$1
+    shift
+
+    "$@" &
+    local command_pid=$!
+    (
+        sleep "$timeout_seconds"
+        kill -TERM "$command_pid" 2>/dev/null || exit 0
+        sleep 2
+        kill -KILL "$command_pid" 2>/dev/null || true
+    ) &
+    local watchdog_pid=$!
+    local status=0
+
+    if wait "$command_pid"; then
+        status=0
+    else
+        status=$?
+    fi
+    kill "$watchdog_pid" 2>/dev/null || true
+    wait "$watchdog_pid" 2>/dev/null || true
+    return "$status"
 }
 
 # Build mount arguments
@@ -265,7 +292,10 @@ runcmd:
   - |
     set -ex
     sudo -u ubuntu -H uv venv /home/ubuntu/.venvs/lintap-dev --python /usr/bin/python3
-    sudo -u ubuntu -H uv pip install --python /home/ubuntu/.venvs/lintap-dev/bin/python \
+    sudo -u ubuntu -H /home/ubuntu/.venvs/lintap-dev/bin/python \
+      -m ensurepip --upgrade
+    sudo -u ubuntu -H /home/ubuntu/.venvs/lintap-dev/bin/python -m pip install \
+      --disable-pip-version-check --timeout 60 --retries 5 \
       'duckdb==1.5.6' 'pytest>=8.4,<9' psutil jinja2
     printf 'export PATH=/home/ubuntu/.venvs/lintap-dev/bin:$PATH\n' > /etc/profile.d/lintap-python.sh
 
@@ -278,8 +308,8 @@ runcmd:
     git config --system --add safe.directory /home/ubuntu/git/Wintappy || true
 
   # Convenience directories for validation output.
-  - mkdir -p /home/ubuntu/data/lintap /tmp/validation-runs
-  - chown -R ubuntu:ubuntu /home/ubuntu/data /tmp/validation-runs
+  - install -d -o ubuntu -g ubuntu /home/ubuntu/data /tmp/validation-runs
+  - mkdir -p /home/ubuntu/data/lintap
 
 final_message: "LinTap dev environment is ready. Connect with: multipass shell <instance-name>"
 EOF
@@ -287,13 +317,19 @@ EOF
 log "Waiting for instance to be ready..."
 if ! multipass exec "${INSTANCE_NAME}" -- sudo cloud-init status --wait; then
     warn "cloud-init reported an error. Recent cloud-init output follows."
-    multipass exec "${INSTANCE_NAME}" -- sudo cloud-init status --long || true
-    multipass exec "${INSTANCE_NAME}" -- sudo tail -n 120 /var/log/cloud-init-output.log || true
+    run_with_timeout "${CLOUD_INIT_DIAGNOSTIC_TIMEOUT}" \
+        multipass exec "${INSTANCE_NAME}" -- sudo cloud-init status --long || true
+    run_with_timeout "${CLOUD_INIT_DIAGNOSTIC_TIMEOUT}" \
+        multipass exec "${INSTANCE_NAME}" -- sudo tail -n 120 /var/log/cloud-init-output.log || true
     if bool_is_true "${CLOUD_INIT_STRICT}"; then
         error "cloud-init failed and CLOUD_INIT_STRICT=true"
     fi
     warn "Continuing because CLOUD_INIT_STRICT is not true. Post-create checks may still fail if setup is incomplete."
 fi
+
+# Install the pinned build-host Go tool in guest-native storage. This also runs
+# when optional post-create checks are disabled; failures stop provisioning.
+multipass exec "${INSTANCE_NAME}" -- sudo bash -s < "$SCRIPT_DIR/packaging/install-build-go.sh"
 
 # Get instance IP for SSH
 INSTANCE_IP=$(multipass info "${INSTANCE_NAME}" | grep IPv4 | awk '{print $2}')

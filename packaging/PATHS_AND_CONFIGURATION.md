@@ -117,7 +117,7 @@ sudo packaging/cleanup-test-install.sh --yes
 ```
 
 It stops Lintap, removes both current roots and the legacy
-`/var/lib/lintap` test tree, and removes the pidstat virtual environment. It
+`/var/lib/lintap` test tree. It leaves operator-owned virtual environments alone and
 does **not** run from package maintainer scripts and must not be used where
-telemetry or local configuration needs to be retained. Re-bootstrap and
+telemetry or local configuration needs to be retained. No bootstrap is required;
 explicitly re-enable pidstat after installation if it is needed.

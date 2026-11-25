@@ -19,11 +19,12 @@ import re
 import sys
 
 with open(sys.argv[1]) as source:
-    version = json.load(source)["sdk"]["version"]
+    sdk = json.load(source)["sdk"]
+    version = sdk["version"]
 if not isinstance(version, str) or not re.fullmatch(r"10\.0\.\d+", version):
     raise SystemExit("ERROR: packaging requires a stable .NET 10 SDK baseline in global.json")
-if version != "10.0.402":
-    raise SystemExit("ERROR: qualified package SDK is 10.0.402; review any global.json baseline change before packaging")
+if sdk.get("rollForward") != "latestMinor" or sdk.get("allowPrerelease") is not False:
+    raise SystemExit("ERROR: packaging requires latestMinor roll-forward and allowPrerelease=false in global.json")
 print(version)
 PY
   ) || return 1
@@ -32,11 +33,17 @@ PY
     echo "ERROR: install/select SDK $LINTAP_DOTNET_SDK_VERSION from $sdk_file" >&2
     return 1
   }
-  if [[ "$selected" != "$LINTAP_DOTNET_SDK_VERSION" ]]; then
-    echo "ERROR: package build requires SDK $LINTAP_DOTNET_SDK_VERSION; selected $selected (latestPatch is not an exact qualification pin)" >&2
-    return 1
-  fi
-  echo "==> Qualified .NET SDK: $selected"
+  python3 - "$LINTAP_DOTNET_SDK_VERSION" "$selected" <<'PY' || return 1
+import re
+import sys
+
+baseline, selected = sys.argv[1:]
+if (not re.fullmatch(r"10\.0\.\d+", selected)
+        or tuple(map(int, selected.split("."))) < tuple(map(int, baseline.split(".")))):
+    raise SystemExit(f"ERROR: package build requires a stable .NET 10 SDK >= {baseline}; selected {selected}")
+PY
+  LINTAP_DOTNET_SDK_VERSION="$selected"
+  echo "==> Selected stable .NET SDK: $selected (baseline from $sdk_file)"
 }
 
 lintap_dotnet() (

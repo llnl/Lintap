@@ -5,12 +5,15 @@ source /etc/profile.d/wintap-dotnet.sh
 source /etc/profile.d/lintap-python.sh
 
 echo "kernel=$(uname -r) arch=$(uname -m)"
-test "$(dotnet --version)" = 10.0.402
+export GO=/opt/lintap-go/1.27.3/bin/go
+export GOTOOLCHAIN=local
+test "$("$GO" env GOVERSION)" = go1.27.3
+"$GO" version
 dotnet --list-runtimes | grep -E '^Microsoft.NETCore.App 10\.0\.'
 dotnet --list-runtimes | grep -E '^Microsoft.AspNetCore.App 10\.0\.'
 if [ -f /home/ubuntu/git/wintap/global.json ]; then
-    expected=$(python3 -c 'import json; print(json.load(open("/home/ubuntu/git/wintap/global.json"))["sdk"]["version"])')
-    test "$(cd /home/ubuntu/git/wintap && dotnet --version)" = "$expected"
+    source /home/ubuntu/git/Lintap/packaging/dotnet-common.sh
+    lintap_require_dotnet_sdk /home/ubuntu/git/wintap/wintap
 fi
 
 clang --version
