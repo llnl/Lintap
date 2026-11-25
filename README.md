@@ -51,16 +51,17 @@ The existing pipeline ingests the raw Wintap format data and produces silver and
 
 - Linux system with root access
 - Sufficient disk space for data collection
-- `uv` plus any host Python 3.11+ for the managed pidstat collector
+- Go 1.27.3 on the build host for building the pidstat collector (not installed hosts)
 - DuckDB for data processing
-- `pidstat` from `sysstat` for the managed pidstat collector
+- No Python, uv, DuckDB or sysstat required by the packaged Go pidstat collector
 
 ## Quick Start
 
 ### Managed pidstat collector
 
 `pidstat-collect.sh` remains the simple example collector. For long-running
-host monitoring, use `pidstat-collector.py` instead.
+host monitoring, use the packaged static Go `pidstat-collector`. The Python
+collector is retained only as the compatibility reference for development tests.
 
 The managed collector:
 
@@ -71,9 +72,8 @@ The managed collector:
 - rotates on `PIDSTAT_ROTATE_INTERVAL_SEC` (default `300`, matching
   `WINTAP_ETL_UPLOAD_INTERVAL_SEC` when set)
 - clamps rotation to `PIDSTAT_MIN_ROTATE_INTERVAL_SEC` (default `300`) to
-  avoid frequent DuckDB parquet conversions becoming observable process noise
-- uses a persistent DuckDB connection with `PIDSTAT_DUCKDB_THREADS` (default
-  `1`) for conversion, reducing short-lived DuckDB worker-thread churn
+  avoid overly frequent parquet conversions
+- writes Parquet in-process using pure Go, with no bootstrap or runtime downloads
 - keeps the active spool outside `raw_sensor/` so only completed parquet files
   are visible to the uploader sweep
 - adds `hostname`, `cgroup_path`, `pid_ns_inode`, `container_runtime`, and
@@ -86,7 +86,7 @@ The managed collector:
 Example:
 
 ```bash
-UV_PROJECT_ENVIRONMENT=/tmp/lintap-venv uv run python ./pidstat-collector.py
+sudo /usr/lib/lintap/pidstat-collector --collect
 ```
 
 Useful environment variables:
@@ -94,28 +94,17 @@ Useful environment variables:
 - `PIDSTAT_INTERVAL_SEC`
 - `PIDSTAT_ROTATE_INTERVAL_SEC`
 - `PIDSTAT_MIN_ROTATE_INTERVAL_SEC`
-- `PIDSTAT_DUCKDB_THREADS`
 - `PIDSTAT_MAX_UNSHIPPED_BYTES`
 - `PIDSTAT_MAX_UNSHIPPED_AGE_SEC`
 - `PIDSTAT_PARQUET_COMPRESSION`
 - `PIDSTAT_HOSTNAME`
-- `PIDSTAT_VENV_DIR`
-- `PIDSTAT_PYTHON`
-- `PIDSTAT_BOOTSTRAP_PYTHON`
-
-`PIDSTAT_BOOTSTRAP_PYTHON` defaults to `3.12`, which keeps the venv inside the
-collector's supported `3.11 <= python < 3.13` range while still letting `uv`
-download or locate the interpreter for you.
-
-For packaged hosts, bootstrap a dedicated collector venv once with `uv`, then
-let systemd run from that venv:
+For packaged hosts, review `/etc/lintap/lintap.env`, then start systemd directly:
 
 ```bash
-sudo PIDSTAT_VENV_DIR=/opt/lintap/pidstat-collector/.venv bash ./pidstat-collector-bootstrap.sh
 sudo systemctl start lintap-pidstat
 ```
 
-Run the collector tests with `uv` from a native filesystem path for the virtual
+Run the Python reference tests with `uv` from a native filesystem path for the virtual
 environment. On shared mounts such as Multipass, point the venv at `/tmp`:
 
 ```bash

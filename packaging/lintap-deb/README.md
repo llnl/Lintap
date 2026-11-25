@@ -12,6 +12,8 @@ maintained in the canonical
 - eBPF objects: `/usr/lib/lintap/tracers/`
 - Service configuration: `/etc/lintap/lintap.env`
 - Units: `lintap.service` and optional `lintap-pidstat.service`
+- pidstat: static Go `/usr/lib/lintap/pidstat-collector --collect`; no runtime bootstrap
+- Build host: pinned Go 1.27.3 (`GO=/path/to/go` supported)
 - Durable output: `/var/log/lintap/data/raw_sensor/`
 - Runtime state and logs: `/var/log/lintap/runtime/`
 

@@ -221,9 +221,9 @@ and **Package and service smoke test** below. Report package installation, host-
 runtime, BPF attachment, independent process/file/bidirectional TCP checks, shutdown
 and fresh DBT results separately. Use host-isolated capture roots, preserve identity
 state/history, and obtain explicit approval before stopping an existing collector.
-Do not bootstrap pidstat unless requested; the managed `/proc` collector needs
-`uv` and its own Python 3.12 environment with DuckDB pinned to `1.5.6`. `sysstat`
-is optional for independent `pidstat` comparisons, not a bootstrap requirement.
+The packaged `/proc` collector is static Go and needs no bootstrap, Python, uv or
+DuckDB on the installed host. Go 1.27.3 is required only for package builds (set
+`GO=/path/to/go` if it is not on PATH). `sysstat` is optional for independent comparisons.
 
 Operator-assisted sequence: inventory → prerequisite review → fresh build/package
 inspection → approved installation → bounded capture/shutdown → downstream checks.
@@ -365,18 +365,15 @@ The package enables, but does not automatically start, `lintap.service` and
 
    Refresh is current-state evidence; it does not replace exec-attempt or
    exec-success observations.
-4. Bootstrap pidstat only if it is required:
-
-   ```sh
-   sudo bash /usr/lib/lintap/pidstat-collector-bootstrap.sh
-   ```
+4. The optional pidstat service uses a static Go collector. No Python, uv, DuckDB,
+   sysstat or bootstrap is required on the installed host.
 
 Start the selected services:
 
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl start lintap
-# Optional after bootstrap:
+# Optional:
 sudo systemctl start lintap-pidstat
 ```
 

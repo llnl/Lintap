@@ -173,6 +173,8 @@ fi
 # Check the project SDK before cleaning any output or compiling eBPF.
 source "$SCRIPT_DIR/../dotnet-common.sh"
 lintap_require_dotnet_sdk "$PROJECT_DIR"
+source "$SCRIPT_DIR/../pidstat-common.sh"
+lintap_require_pidstat_go
 
 if [[ -z "$HOST_ARCH" ]]; then
   HOST_ARCH=$(uname -m)
@@ -326,6 +328,7 @@ rm -rf \
 find "$PUBLISH_DIR" -name 'libnironcompress.so' -delete
 
 echo "==> Staging package filesystem"
+lintap_build_pidstat "$SCRIPT_DIR/../../pidstat-go" "$WORK_DIR/pidstat" "$RPM_ARCH" "$RUNTIME"
 rm -rf "$PKG_ROOT"
 mkdir -p \
   "$PKG_ROOT/usr/lib/lintap" \
@@ -353,9 +356,7 @@ awk -v version="$RPM_PACKAGE_VERSION" '
 chmod 0644 "$PKG_ROOT/usr/lib/systemd/system/lintap.service"
 install -m 0644 "$SCRIPT_DIR/lintap-pidstat.service" "$PKG_ROOT/usr/lib/systemd/system/lintap-pidstat.service"
 install -m 0644 "$SCRIPT_DIR/lintap.env" "$PKG_ROOT/etc/lintap/lintap.env"
-install -m 0755 "$SCRIPT_DIR/../../pidstat-collector.py" "$PKG_ROOT/usr/lib/lintap/pidstat-collector.py"
-install -m 0755 "$SCRIPT_DIR/../../pidstat-collector-launch.sh" "$PKG_ROOT/usr/lib/lintap/pidstat-collector-launch.sh"
-install -m 0755 "$SCRIPT_DIR/../../pidstat-collector-bootstrap.sh" "$PKG_ROOT/usr/lib/lintap/pidstat-collector-bootstrap.sh"
+lintap_stage_pidstat "$WORK_DIR/pidstat" "$PKG_ROOT" "$RPM_ARCH" "$RUNTIME"
 cat > "$PKG_ROOT/usr/bin/lintap" <<'EOF'
 #!/bin/sh
 exec /usr/lib/lintap/Lintap "$@"
@@ -412,9 +413,11 @@ if ! grep -Fqx "Description=Lintap Linux Sensor (${RPM_PACKAGE_VERSION})" "$PKG_
 fi
 assert_exists /usr/lib/systemd/system/lintap-pidstat.service
 assert_exists /etc/lintap/lintap.env
-assert_exists /usr/lib/lintap/pidstat-collector.py
-assert_exists /usr/lib/lintap/pidstat-collector-launch.sh
-assert_exists /usr/lib/lintap/pidstat-collector-bootstrap.sh
+assert_exists /usr/lib/lintap/pidstat-collector
+lintap_validate_pidstat_binary "$PKG_ROOT/usr/lib/lintap/pidstat-collector" "$(lintap_pidstat_arch "$RPM_ARCH" "$RUNTIME")"
+assert_not_staged '*/pidstat-collector.py'
+assert_not_staged '*/pidstat-collector-launch.sh'
+assert_not_staged '*/pidstat-collector-bootstrap.sh'
 
 expected_bpf_objects=(
   clone_tracer.bpf.o
@@ -490,7 +493,7 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl enable lintap.service >/dev/null 2>&1 || true
     systemctl enable lintap-pidstat.service >/dev/null 2>&1 || true
 fi
-echo "Lintap installed. Review /etc/lintap/lintap.env, run: sudo bash /usr/lib/lintap/pidstat-collector-bootstrap.sh, then start with: sudo systemctl start lintap lintap-pidstat"
+echo "Lintap installed. Review /etc/lintap/lintap.env, then start with: sudo systemctl start lintap lintap-pidstat. The Go pidstat collector needs no bootstrap."
 
 %preun
 if [ \$1 -eq 0 ]; then
